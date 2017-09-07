@@ -25,10 +25,13 @@ _START:
 	; interrupt mode 1
 	; interrupt handler is at address 0038
 	im   1
+	; set stack at $DFF0
 	ld   sp, $DFF0
+	; goto _LABEL_85_2
 	jr   _LABEL_85_2
 
 _LABEL_8_10:
+	; writes de to VDP register
 	ld   a, e
 	out  ($BF), a
 	ld   a, d
@@ -40,19 +43,32 @@ _LABEL_8_10:
 .db $FF, $87, $4F, $06, $00, $09, $7E, $23, $66, $6F, $C9, $FF
 
 _LABEL_1B_39:
+	; some big long jump based on a having high bit?
 	bit  7, a
 	ret  z
 
 	and  $0F
 _RST_20H:
+	; when hl = 0x3B and a = 0x02
 	add  a, a
+	; a = 0x04
 	ld   e, a
+	; e = 0x04
 	ld   d, $00
+	; d = 0x00
+	; de = 0x0004
 	add  hl, de
+	; hl = 0x3F
 	ld   a, (hl)
+	; a = 0xE5
 	inc  hl
 	ld   h, (hl)
+	; h = 0x09
 	ld   l, a
+	; could be 0x076D
+	; hl = 0x09E5
+	; we  get 76d lots but rarely 9e5
+	; off in some memory bank somewhere, idk how to get to it :/
 	jp   (hl)
 
 
@@ -69,10 +85,14 @@ _LABEL_33_112:
 
 ; this gets called 140 times per second!!
 ; at $38 because we set interrupt mode to 1
+; called by vsync or scanline
+; in any case the video rendering drives this
 _IRQ_HANDLER:
 	jp   _LABEL_C0_13
 
 
+; looks like some function pointers that we hit sometimes
+; 76D, 76D, 9E5, 194F, 18CE, 1BC9, 6C0C (doesn't make sense)
 ; Data from 3B to 52 (24 bytes)
 .db $6D, $07, $6D, $07, $E5, $09, $4F, $19, $CE, $18, $C9, $1B, $0C, $6C, $C9, $7D
 .db $50, $16, $88, $0A, $88, $0A, $CD, $1F
@@ -81,7 +101,14 @@ _LABEL_53_93:
 	xor  a
 	ld   ($C01F), a
 _LABEL_57_147:
+	; game loop
+	; waits for $C01F to get data
+	; then goes and does it
+	; and gets a function pointer from it
+	; then jumps to it
 	ld   hl, $C01F
+	; a gets set sometimes to 0 and sometimes to 2
+	; masked to 0x0F
 	ld   a, (hl)
 	and  $0F
 	exx
@@ -93,6 +120,9 @@ _LABEL_57_147:
 ; Data from 65 to 65 (1 bytes)
 .db $FF
 
+; non-maskable interrupt
+; called when the pause button is pushed
+; we can postpone this until we care about the menu
 _NMI_HANDLER:
 	push af
 	ld   a, ($C31A)
@@ -110,10 +140,13 @@ _LABEL_82_149:
 	pop  af
 	retn
 
+; start of actual game
 _LABEL_85_2:
+	; set paging register
+	; not sure what $82 does - top bit set, and lower ones at 2
 	ld   a, $82
 	ld   ($FFFF), a
-	call _LABEL_9E02_3
+	call _LABEL_9E02_3 ; beeps?
 	ld   hl, $C000
 	ld   de, $C001
 	ld   bc, $1FFF
@@ -122,21 +155,25 @@ _LABEL_85_2:
 	call _LABEL_341_4
 	call _LABEL_350_7
 _LABEL_9F_14:
+	; we get sent here in a soft reset
 	ld   a, $82
 	ld   ($FFFF), a
 	ld   sp, $DFF0
-	call _LABEL_9E02_3
+	call _LABEL_9E02_3 ; beeps?
 	call _LABEL_26B_8
 	ld   hl, $0000
 	ld   de, $4000
 	ld   bc, $3800
+	; write to VRAM 0000 - set sprite/tile patterns
 	call _LABEL_184_9
 	ei
 	call _LABEL_2F6_92
 	jp   _LABEL_53_93
 
 ; interrupt handler
-; called 140 times per second
+; "video handler" i guess
+; called some number of hundreds of times per second
+; this probably drives the main event loop - getting user input, time-tick based actions, etc
 _LABEL_C0_13:
 	; push all the registers
 	push af
@@ -152,36 +189,52 @@ _LABEL_C0_13:
 	push hl
 	push ix
 	push iy
-	in   a, ($BF)
-	in   a, ($DD)
-	and  $10
+	; i think we're doing a semi-obligatory check of $BF
+	in   a, ($BF) ; video status register, bit 7 is vsync, 6 is line interrupt, 5 is sprite collision
+	in   a, ($DD) ; joypad port 2
+	and  $10 ; mask everything except bit 4, reset button
+	; store reset button flag in $C096
 	ld   hl, $C096
 	ld   c, (hl)
 	ld   (hl), a
 	xor  c
 	and  c
+	; jump if reset button has been pressed/released since last interrupt
+	; looks like this is a soft reset
 	jp   nz, _LABEL_9F_14
+	; store current memory location in a
 	ld   a, ($FFFF)
+	; $C008 looks like a bitmap of things to do here
+	; we zero it at the end here
+	; save af (a and flags), so we can reload memory at the end
 	push af
 	ld   a, ($C008)
+	; rotate right with carry on `a` register
 	rrca
 	push af
+	; call conditional on carry flag - carry flag gets set if `a` from above has lsb set (1)
+	; bit 0
+	; update sprites if bit 0 is set
 	call c, _LABEL_1F7_15
+	; compare $C200 with $C201
 	call _LABEL_41B3_24
 	pop  af
 	rrca
 	push af
-	call _LABEL_367_26
-	call _LABEL_107C_35
+	; bit 1
+	call _LABEL_367_26 ; get joypad buttons pushed
+	call _LABEL_107C_35 ; ? some magic far jump
 	pop  af
 	rrca
 	push af
-	call _LABEL_264F_36
+	; bit 2
+	call _LABEL_264F_36 ; updates sprite colour
 	pop  af
 	rrca
+	; bit 3
 	ld   a, ($C01F)
 	ld   hl, $0127
-	call c, _LABEL_1B_39
+	call c, _LABEL_1B_39 ; ? some magic far jump
 	ld   a, $82
 	ld   ($FFFF), a
 	call _LABEL_984F_43
@@ -189,6 +242,7 @@ _LABEL_C0_13:
 	ld   ($C008), a
 	pop  af
 	ld   ($FFFF), a
+	; pop all the registers and shadow registers
 	pop  iy
 	pop  ix
 	pop  hl
@@ -201,6 +255,7 @@ _LABEL_C0_13:
 	pop  de
 	pop  bc
 	pop  af
+	; enable interrupts (they were disabled because we were in the handler)
 	ei
 	ret
 
@@ -210,6 +265,9 @@ _LABEL_C0_13:
 .db $A6, $16, $B1, $0A, $B1, $0A, $E6, $1F
 
 _LABEL_13F_38:
+	; set palette value
+	; 0x00-0x0f = tile
+	; 0x10-0x1f = sprite
 	push af
 	rst  $8
 	pop  af
@@ -228,6 +286,7 @@ _LABEL_17C_101:
 	ld   bc, $0700
 	ld   l, $00
 _LABEL_184_9:
+	; gets called by a couple places that make bulk changes to tile map
 	rst  $8
 	ld   a, c
 	or   a
@@ -267,6 +326,10 @@ _LABEL_198_110:
 .db $02, $16, $00, $ED, $51, $10, $F6, $D9, $23, $0B, $78, $B1, $C2, $DA, $01, $C9
 
 _LABEL_1F7_15:
+	; called by video handler
+	; 2x places kick this off (bit 0)
+	; am expecting some sort of screen/state update here
+	; $C01F could be the number of rows to update
 	ld   a, ($C01F)
 	and  $0F
 	cp   $02
@@ -276,6 +339,13 @@ _LABEL_1F7_15:
 	bit  0, (hl)
 	jr   z, _LABEL_224_17
 _LABEL_208_16:
+	; copy first 64 sprites
+	; send 7F00 to VDP register
+	; this is (0x7000 + 0x3F00) = write to 0x3F00 in VRAM
+	; Screen display: 32x28 table of tile numbers/attributes
+	; in other words, update on-screen tiles
+	; then copy 0x40 bytes from $C700 to port 0xBE
+	; this is the first 64 sprites
 	ld   hl, $C700
 	ld   de, $7F00
 	ld   bc, $40BE
@@ -283,6 +353,9 @@ _LABEL_208_16:
 _LABEL_212_18:
 	outi
 	jr   nz, _LABEL_212_18
+	; copy next 128 sprites
+	; 192 sprites all up, plus 64 between 0x3f40 and 0x3f80
+	; memove(c780_local, 3f80_vram, 0x80)
 	ld   hl, $C780
 	ld   de, $7F80
 	ld   b, $80
@@ -296,6 +369,8 @@ _LABEL_224_17:
 	ld   a, ($C009)
 	cp   $13
 	jr   c, _LABEL_208_16
+	; copy 0x11=17 sprites to 3f80
+	; memove(c780_local, 3f80_vram, 0x80)
 	ld   hl, $C700
 	ld   bc, $11BE
 	ld   de, $7F00
@@ -305,14 +380,18 @@ _LABEL_235_20:
 	jr   nz, _LABEL_235_20
 	ld   hl, ($C009)
 	ld   a, l
+	; accounting, subtract the 0x11 sprites from some counter
 	dec  l
 	sub  $11
 	ld   b, a
 _LABEL_241_21:
+	; send another 0x11 but increment b this time?!
 	outd
 	jr   nz, _LABEL_241_21
+	; then 0xD0 - 35 all up at this stage
 	ld   a, $D0
 	out  ($BE), a
+	; then another 0x22=34 - 39 all up
 	ld   hl, $C780
 	ld   de, $7F80
 	ld   b, $22
@@ -327,6 +406,7 @@ _LABEL_252_22:
 	sub  $A2
 	ld   b, a
 _LABEL_261_23:
+	; some padding for the rest of the sprite mem?
 	dec  l
 	dec  l
 	outi
@@ -338,6 +418,7 @@ _LABEL_26B_8:
 	ld   hl, $027D
 	ld   bc, $16BF
 	otir
+	; 0 to finish?
 	xor  a
 	out  ($BE), a
 	ld   a, ($027F)
@@ -397,6 +478,8 @@ _LABEL_2B7_106:
 .db $3E, $01
 
 _LABEL_2E6_99:
+	; this looks like it sets the sync bitmap and busy waits until the interrupt handler has been called
+	; debugger spends a ton of time here, makes a lot of sense
 	ld   hl, $C008
 	ld   (hl), a
 _LABEL_2EA_100:
@@ -406,14 +489,17 @@ _LABEL_2EA_100:
 	ret
 
 _LABEL_2EF_97:
+	; disable display
 	ld   a, ($C004)
 	and  $BF
 	jr   _LABEL_2FB_98
 
 _LABEL_2F6_92:
+	; enable display
 	ld   a, ($C004)
 	or   $40
 _LABEL_2FB_98:
+	; write a to vdp register 1
 	ld   ($C004), a
 	ld   e, a
 	ld   d, $81
@@ -425,7 +511,9 @@ _LABEL_2FB_98:
 .db $AF, $32, $BE, $C0, $32, $B0, $C0, $5F, $16, $89, $CF, $15, $CF, $C9
 
 _LABEL_311_96:
-	call _LABEL_2EF_97
+	; called from just before busy wait thing
+	call _LABEL_2EF_97 ; disable display
+	; zero a bunch of state (scroll counters?)
 	ld   hl, $0000
 	ld   ($C0AF), hl
 	ld   ($C0BD), hl
@@ -436,11 +524,13 @@ _LABEL_311_96:
 	ld   bc, $00BF
 	ld   (hl), $E0
 	ldir
+	; zero out scroll values (registers 8 and 9)
 	ld   de, $8800
 	rst  $8
 	ld   d, $89
 	rst  $8
 	ei
+	; set bottom-most sync bit, busy wait
 	ld   a, $01
 	call _LABEL_2E6_99
 	di
@@ -478,6 +568,7 @@ _LABEL_350_7:
 	ret
 
 _LABEL_367_26:
+	; input detection, output in $C006
 	ld   a, ($C005)
 	bit  0, a
 	jp   nz, _LABEL_374_27
@@ -624,17 +715,21 @@ _LABEL_444_103:
 .db $02, $93, $B7, $3F, $ED, $6A, $10, $F3, $C9
 
 ; This label is reached with a register jump
+; seems to be the default event to go to
 _LABEL_76D_94:
 	exx
 	bit  7, (hl)
+	; nothing to do so short circuit to busy wait
 	jp   nz, _LABEL_7EC_95
 	set  7, (hl)
 	xor  a
 	ld   ($C10A), a
+	; disable display and reset a bunch of stuff including scroll
 	call _LABEL_311_96
 	ld   de, $6000
 	ld   bc, $0020
 	ld   l, $00
+	; write second batch of sprite/tile patterns
 	call _LABEL_184_9
 	ld   a, $82
 	ld   ($FFFF), a
@@ -675,10 +770,11 @@ _LABEL_76D_94:
 	ld   a, $81
 	ld   ($C110), a
 _LABEL_7EC_95:
+	;set vsync bits 3 and 0 and busy wait
 	ld   a, $09
 	call _LABEL_2E6_99
 	call _LABEL_2694_121
-	ld   a, ($C006)
+	ld   a, ($C006) ; a = bitmask of joypad buttons
 	ld   b, a
 	and  $30
 	jr   nz, _LABEL_80C_146
@@ -734,6 +830,7 @@ _LABEL_842_40:
 	add  hl, de
 	ld   a, (hl)
 	ld   de, $C002
+	; set palette 02 to colour in a
 	jp   _LABEL_13F_38
 
 _LABEL_866_41:
@@ -871,6 +968,7 @@ _LABEL_2663_37:
 	ld   ($C054), a
 	ld   a, $03
 	ld   de, $C014
+	; set sprite 0x04 colour to 0x03
 	jp   _LABEL_13F_38
 
 
@@ -1375,12 +1473,18 @@ _LABEL_98AE_44:
 	cp   $B4
 	jp   nc, _LABEL_9DF3_45
 	sub  $81
+	; return if sign flag is set
+	; i.e. if a is less than 0
+	; if a is 0x81 or greater before now then we carry on and do the level load
 	ret  m
 
 	cp   $30
 	jr   nc, _LABEL_98C5_46
 	ld   ($C116), a
 _LABEL_98C5_46:
+	; breakpointed here
+	; this only gets hit when we change to a new level or similar
+	; must be a palette/tile/screen refresh thing?
 	ld   c, a
 	ld   b, $00
 	ld   hl, $98DD
@@ -1795,6 +1899,8 @@ _LABEL_9DF3_45:
 	exx
 _LABEL_9E02_3:
 	exx
+	; $7F is sound output
+	: puts out 4 notes
 	ld   hl, $9E18
 	ld   c, $7F
 	ld   b, $04
