@@ -452,6 +452,7 @@ _LABEL_2A0_105:
 	ld   a, (hl)
 	inc  hl
 	or   a
+	; 0 terminates
 	ret  z
 
 	ld   b, a
@@ -472,7 +473,9 @@ _LABEL_2A8_107:
 	ld   a, (hl)
 	out  ($BE), a
 	bit  7, c
+	; repeat the same character if bit 7 is 0
 	jp   z, _LABEL_2B7_106
+	; if bit 7 is set, then we're dumping characters 1 by 1
 	inc  hl
 _LABEL_2B7_106:
 	inc  de
@@ -480,6 +483,8 @@ _LABEL_2B7_106:
 	inc  de
 	inc  de
 	djnz _LABEL_2A8_107
+	; djnz preserves flags so this is the zero flag from earlier
+	; in other words, this makes sure we increment hl if we didn't just above
 	jp   nz, _LABEL_2A0_105
 	inc  hl
 	jp   _LABEL_2A0_105
