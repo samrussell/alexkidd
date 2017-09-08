@@ -40,3 +40,5 @@ i guess let's bp on $29F and see where hl got to
 hl ends at 0xBEDB = 13EDB in file
 0xBA9 = 2985 bytes
 let's build our own unpacker?
+start = 78642
+length = 2985
