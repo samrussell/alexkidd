@@ -1,0 +1,42 @@
+bp at $2A8
+let's find out how we copy tiles to memory
+first hit with DE=$4020, HL=$B333
+$B332 is mapped from $13332 in rom
+a = 0x07 (confirmed from $B332)
+this slowly starts writing out every 4th byte in vram
+sometimes it moves hl forwards, sometimes it doesn't
+it's basically run length encoding
+so for example
+
+07 00 81 01 07 00 81 FF 08 01 9C 29 C7 4F 57 E7 03 03 01 FE FF FF EF E3 E0 C0 80 7F EE D5
+00013350  C9 E5 FA 61 1E A7 6F B7 BF 03 7F 89 BF D7 D7 BB E3 BA CD FD B6 08 00 84 ...a..o.................
+00013368  0C 03 0F 3F 03 7F A1 1E 7E FE FD FD EA D5 98 1F A5 5A 8D 7F 1F 9F 7F FF ...?....~........Z......
+00013380  07 18 23 4F 5C 98 B8 B0 E0 18 04 02 02 01 0D 1D 08 FF 81 80 02 B0 02 43 ..#O\..................C
+00013398  8E 21 18 07 1D 39 F9 F2 E2 84 18 E0 00 F0 FC 02 FE 03 FF 04 00 81 F0 03 .!...9..................
+000133B0  F8 05 FF 83 FE 70 00 03 FC 81 78 04 00 02 FF 8C DF FF FD FF DF FF F7 D6 .....p....x.............
+000133C8  F5 F5 7B 9B 03 EB 02 F7 86 D7 E7 E8 E7 EF 01 0D 00 83 01 12 69 07 FF 82 ..{.................i...
+000133E0  00 FC 03 C2 84 FC C0 C0 00 06 C2 8A 7C 00 7C C0 C0 7C 06 06 FC 00 03 C2 ............|.|..|......
+000133F8  81 FE 03 C2 09 00 89 7E C0 C0 7C 06 06 FC 00 FF 06 18 9A 00 38 64 64 7C .......~..|.........8dd|
+00013410  FE C2 C2 00 FC C6 C6 FC CC C6 C6 00 FC C2 C2 FC C2 C2 FC 00 7C 05 C2 91 ....................|...
+00013428  7C 00 C2 E2 F2 DA CE C6 C2 3C 42 9D A1 A1 9D 42 3C 21 00 82 0C 1C 04 0C |........<B....B<!......
+00013440  83 1E 00 7C 03 C6 8F 7E 06 06 00 7C C2 C2 7C C2 C2 7C 00 7C C0 FC 03 C6 ...|...~...|..|..|.|....
+00013458  81 7C 02 FF 02 7F 84 3F 1F 07 00 0D FF 83 EF C7 01 1C 00 8C 03 0C 30 C0 .|.....?..............0.
+00013470  00 00 0E 70 83 0C 30 C0 08 00 86 01 06 08 30 40 80 0B 00 87 03 07 0F 0F ...p..0.......0@........
+00013488  1F 7F FF 04 00 83 03 1F 7F 21 FF 82 0F 10 02 20 02 40 02 80 82 F8 0E 02 .........!..... .@......
+000134A0  07 03 03 81 01 03 00 02 80 03 C0 83 00 03 1C 05 10 82 1F E0 04 00 93 03 ........................
+
+7x write 00 (every 4th byte)
+1x write 01
+7x write 00
+1x write FF
+8x write 01
+28x write the next characters (the 0x9C = 0x80 for high bit + 0x1C = 28)
+ - 29 C7 4F 57 E7 03 03 01 FE FF FF EF E3 E0 C0 80 7F EE D5 C9 E5 FA 61 1E A7 6F B7 BF 
+3x write 7F
+9x write next characters
+ - BF D7 D7 BB E3 BA CD FD B6
+ [all matches up with reading vram so far]
+i guess let's bp on $29F and see where hl got to
+hl ends at 0xBEDB = 13EDB in file
+0xBA9 = 2985 bytes
+let's build our own unpacker?

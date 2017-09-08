@@ -431,18 +431,24 @@ _LABEL_26B_8:
 .db $00, $89, $00, $87, $10, $C0
 
 _LABEL_293_104:
+	;4.times do
 	ld   b, $04
 _LABEL_295_108:
 	push bc
 	push de
 	call _LABEL_2A0_105
 	pop  de
+	; so we do 0+4n
+	; then 1+4n
+	; etc etc
+	; so this is 2 rows at a time (out of 8)
 	inc  de
 	pop  bc
 	djnz _LABEL_295_108
 	ret
 
 _LABEL_2A0_105:
+	; gets called 4 times
 	ld   a, (hl)
 	inc  hl
 	or   a
@@ -450,8 +456,15 @@ _LABEL_2A0_105:
 
 	ld   b, a
 	ld   c, a
-	res  7, b
+	res  7, b ; make sure it isn't a negative number
 _LABEL_2A8_107:
+	; de is either $4020 or $6400
+	; these translate to write to $0020 or $2400
+	; both of these are addresses of sprite/tile defs
+	; each is 32 bytes (each nybble is a colour)
+	; looks like we RLE the sprites, and stack them 4 bytes at a time
+	; presumably this helps with compression?
+	; important thing is that HL seems fixed - base sprites + some modifiers?
 	ld   a, e
 	out  ($BF), a
 	ld   a, d
@@ -642,6 +655,8 @@ _LABEL_3C4_28:
 .db $27, $23, $0C, $0A, $9E, $27, $23, $0C, $0A, $9E, $27, $C9
 
 _LABEL_43B_102:
+	; these two hold counters?
+	; subtract one from the other
 	ld   de, $C020
 	ld   hl, $C000
 	ld   b, $03
@@ -654,6 +669,7 @@ _LABEL_444_103:
 	djnz _LABEL_444_103
 	ret  c
 
+	; memmove the last 3 bytes?
 	ex   de, hl
 	dec  hl
 	dec  de
@@ -733,8 +749,9 @@ _LABEL_76D_94:
 	call _LABEL_184_9
 	ld   a, $82
 	ld   ($FFFF), a
-	call _LABEL_9DF3_45
-	call _LABEL_43B_102
+	call _LABEL_9DF3_45 ; set sound frequency, moves a string of stuff along by 1
+	call _LABEL_43B_102 ; subtracts ($c020) from ($c000) and moves a few bytes across
+	; copy 0x1d bytes forward from $c021
 	ld   hl, $C020
 	ld   de, $C021
 	ld   bc, $1DDF
@@ -743,13 +760,14 @@ _LABEL_76D_94:
 	ld   hl, $C226
 	ld   (hl), $3C
 	xor  a
+	; zero out $C227 and $C228
 	ld   ($C227), a
 	ld   ($C228), a
 	ld   a, $84
 	ld   ($FFFF), a
 	ld   hl, $B332
 	ld   de, $4020
-	call _LABEL_293_104
+	call _LABEL_293_104 ; unpack tileset from $B332 (0x13332 in file) and load into VRAM
 	ld   hl, $AD9E
 	ld   de, $788E
 	ld   bc, $061C
@@ -1891,6 +1909,8 @@ _LABEL_9DEB_67:
 
 _LABEL_9DF3_45:
 	exx
+	; memmove($c111, $c112, 0xe4)
+	; 0xe4 = 228 = 1/4 of 32x28
 	ld   hl, $C111
 	ld   de, $C112
 	ld   bc, $00E4
@@ -1900,7 +1920,8 @@ _LABEL_9DF3_45:
 _LABEL_9E02_3:
 	exx
 	; $7F is sound output
-	: puts out 4 notes
+	: copies 4 bytes from $9e18
+	; this does 2x2 frequency changes
 	ld   hl, $9E18
 	ld   c, $7F
 	ld   b, $04
