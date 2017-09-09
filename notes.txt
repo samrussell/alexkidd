@@ -42,3 +42,79 @@ hl ends at 0xBEDB = 13EDB in file
 let's build our own unpacker?
 start = 78642
 length = 2985
+
+unpacker working
+
+bp at $7ec gets us just after all tiles and palettes and screen has been loaded
+
+so ran some breakpoints, looks like _LABEL_76D_94 just loads the first screen
+so this means that the stuff that loads the rest of the things is buried somewhere else?
+we're a bit lucky in that RST $30 seems to be used so far for loading the palette so we can probably bp that in future
+but we do also have enough data here to rebuild the start screen
+rst $30 gets hit every few seconds, i guess it's related to the music too?
+it doesn't get hit when doing the map screen
+does get hit just as the new palette turns up for the first level
+sp = EC 02 11 11 E6 0A (return address should be 0x1111 but might be 0xAE6)
+definitely changed palette here
+and returned us to 0x1111
+called by AE6
+none of that chunk got disassembled... 
+ok before AE6 was 0062... and nothing before that... did we get chucked here by an interrupt?
+looks like AC3 might be the function as debugger doesn't want to drop us in any earlier than that
+
+having some issues getting full disasm, so looking into memory pages
+it looks like alex just has first 2 banks both pointing at rom bank 0
+but third changes a lot - mostly on 2, sometimes gets moved to 4 or 5 :/ weird
+good news is memory model looks roughly like 0-4000 is static, 4000-8000 probably won't change (/shrug), and 8000-c000 = often changes, multiple times per frame
+so code should be reliable, data less so... although there is useful code at 4000+ ?!
+
+what do we do here? should we aim to get the main screen loaded? that would be a good start, and then we can look at the level loading after that
+i'd be happy calling _LABEL_76D_94 the loading screen loop (at least after we pass the jp   nz, _LABEL_7EC_95)
+
+put a bp there, doesn't get called after game loads so im happy with $76D = start screen
+when bp gets hit, return address is $62
+instruction at $60 (or $61, idk) is rst $20 which is a jmp based on hl
+is it safe to say that $20, possibly even back at $53, is the level/screen loader?
+let's bp on $53
+$53 is only hit for start screen, but bp on $20 might be more useful
+$20 gets hit tons even in the loading screen
+sometimes goes to 76D (hl=3b)
+sometimes gets called with hl=127, a=0, and sends us to 842
+let's check that out then
+also massive stacktrace here - 107, 254, C300, C6C0, 76D?!
+looks like we got called by the interrupt handler going to _LABEL_1B_39
+so pattern is follows
+start screen/always
+- rst $20 with hl=3b, a=0
+- rst $20 with hl=127, a=0
+
+loading map
+- above two and
+- sometimes rst $20 with hl=2890, a=62 (this jumps to 39DB)
+- sometimes rst $20 with hl=127, a=3 (this jumps to 1A01)
+- sometimes rst $20 with hl=3b, a=3 (this jumps to 194F)
+
+in level it's the same shit with different numbers
+
+so it's pretty clear - $20 is a central part of the message pump
+$1b is also important for some reason - the high bit of a ends up being a flag and then getting zeroed out - rle?
+
+now we know this let's go through start again
+stack setup then game on at $85
+$85 does the following:
+- initialise mem bank 2 to cartridge bank 2
+- set all 4 sound channels to off
+- clears all RAM
+- does some big expensive loop thing with no side effects?! ($343)
+- does some sort of console localisation/version check on the magic $DE/$DF ports, stores result in $C005
+- initialises VDP registers and zeroes VRAM (stores state of VDP register 1 in $C004)
+- finally enables interrupts and display (checking against $C004)
+
+vars so far
+C004 = VDP register 1 (cached for easy enable/disable)
+C005 = some localisation stuff (0 for us)
+
+easy so far, just initalising everything, and then display and interrupts enabled for when we hit $53
+
+$57 is the loading screen loop, but $53 zeroes out $C01F first... this is where we get our a for when we jump to $20
+at least we know $57 is actually the start of everything, and by extension, $76D
