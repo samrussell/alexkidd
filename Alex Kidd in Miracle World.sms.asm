@@ -322,17 +322,25 @@ _LABEL_18B_11:
 	ret
 
 _LABEL_193_109:
+	; print rectangle of tiles to screen
+	; hl = memory of flattened blob
+	; de = initial coordinate
+	; b = height
+	; c = width (in bytes, twice the number of tiles)
 	; gets called twice
 	; hl=$AD9E, de=$788E, bc=$061C
 	; hl=$AE46, de=$79DA, bc=$071A
 	; b = number of iterations (whole loop)
 	; c = number of bytes to copy in each iteration
-	; $061C = 06 * 1C = 0xA8
-	; $071A = 07 * 1A = 0xB6
+	; $061C = 06 * 1C = 0xA8 (14 tiles)
+	; $071A = 07 * 1A = 0xB6 (13 tiles)
 	; we appear to write chunks of 0x1C or 0x1A but then skip hl forward by 0x40 after that
+	; 0x40 is the width of the screen (32 = 0x20, and 2 bytes per thing)
 	; 788E = write to 0x388E in VRAM (weird... display mem starts at 0x3800 so we skip a bunch?!)
 	; 79DA = write to 0x39DA in VRAM (weird... display mem starts at 0x3800 so we skip a bunch?!)
-	; each value is 2 bytes so we skip the first 71 x 2 bytes (71x2 = 0x8E)
+	; the idea here is to dump the "ALEX KIDD" logo on the screen
+	; by passing de=$788E or $79DA we get to start at a certain x,y coordinate and print line at a time
+	; then we just nudge de forward 0x40 at a time
 	; in any case this would appear to be syncing (most of) the screen to VRAM
 	; this is part of the start screen, it dumps a bunch of tiles in two specific chunks
 	push bc
@@ -845,15 +853,15 @@ _LABEL_76D_94:
 	; $7b6
 	; no tiles loaded
 	call _LABEL_293_104 ; unpack tileset from $B332 (0x13332 in file) and load into VRAM
-	ld   hl, $AD9E
-	ld   de, $788E
-	ld   bc, $061C
+	ld   hl, $AD9E ; 12D9E in ROM
+	ld   de, $788E ; start at (7, 2) - (y_coord + x_coord+row_length)*bytes_in_word = (7 + 2*32)*2 = 142 = 8E
+	ld   bc, $061C ; height 6, width 14
 	; $7c2
 	; loading screen tiles all loaded
 	call _LABEL_193_109 ; sync screen display from memory
-	ld   hl, $AE46
-	ld   de, $79DA
-	ld   bc, $071A
+	ld   hl, $AE46 ; 12E46 in ROM
+	ld   de, $79DA ; start at (13, 7) - (y_coord + x_coord+row_length)*bytes_in_word = (13 + 7*32)*2 = 474 = 1DA
+	ld   bc, $071A ; height 7, width 13
 	; $7ce
 	; word ALEX is loaded in tilemap
 	call _LABEL_193_109 ; sync screen display from memory

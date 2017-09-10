@@ -159,3 +159,16 @@ it feels more and more like $C008 is an interrupt call - hit it and it'll call y
 anyway we're losing focus
 
 found out what the E0 is - it's 224 (past the end of the screen). the E0/00 thing sets all sprites to sprite #00 and position 224,224 (off end of screen)
+
+i used dumpdata.rb to get the initial tile data out of the rom (13332 in file) into sprites_13332.dat
+i then used unpack_tilemap.rb to unpack this in start_screen_tiles.dat
+let's find how the rest of vram gets populate and then we can build a start screen.
+
+if we bp on $7c2 we see the base tiles are all loaded in vram
+we just need to pull apart $193 and then we can load the tilemap
+protip: palette isn't loaded yet, so just dump 00-0F into palette ram and you at least get a (false colour) version of the screen and tiles
+huh,  turns out the screen is done in two subtly overlapping bits, and the crazy thing is they don't overlap in ram
+so we get a repeat from 12E36-12E45 again at 12E46-12E55 - they could have easily just started 16 bytes earlier with this code
+let's extract this anyway
+extract 12D9E=77214 06x1C = 168 bytes
+extract 12E46=77382 07x1A = 182 bytes
