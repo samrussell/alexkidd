@@ -866,8 +866,8 @@ _LABEL_76D_94:
 	; word ALEX is loaded in tilemap
 	call _LABEL_193_109 ; sync screen display from memory
 	; load palette
-	ld   hl, $08C6
-	ld   de, $C000
+	ld   hl, $08C6 ; palette location
+	ld   de, $C000 ; palette entry 0
 	ld   b, $20
 	; $7d9
 	; whole ALEX KIDD in miracle world logo is loaded
