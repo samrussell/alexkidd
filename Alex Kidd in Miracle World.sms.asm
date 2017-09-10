@@ -226,7 +226,7 @@ _LABEL_C0_13:
 	push af
 	; call conditional on carry flag - carry flag gets set if `a` from above has lsb set (1)
 	; bit 0
-	; update tile/spritemap if bit 0 is set (copies C700-C73F and C780-C7FF to VRAM 3900-393F and 3980-39FF)
+	; sync sprite map from C700 to VRAM 3F00
 	; $E7
 	call c, _LABEL_1F7_15
 	; compare $C200 with $C201
@@ -722,8 +722,9 @@ _LABEL_43B_102:
 	ld   de, $C020
 	ld   hl, $C000
 	ld   b, $03
-	or   a
+	or   a ; not sure what this does, we override a and the flags should get reset
 _LABEL_444_103:
+	; this checks if ($C020) > ($C000)
 	ld   a, (de)
 	sbc  a, (hl)
 	inc  hl
@@ -731,7 +732,7 @@ _LABEL_444_103:
 	djnz _LABEL_444_103
 	ret  c
 
-	; memmove the last 3 bytes?
+	; if so, copy ($C020) into ($C000)
 	ex   de, hl
 	dec  hl
 	dec  de
@@ -803,6 +804,9 @@ _LABEL_76D_94:
 	jp   nz, _LABEL_7EC_95
 	; set bit ($C01F) and don't come back in here until it gets re-set
 	set  7, (hl)
+	; this strikes me as "init everything for the start screen"
+	; it loads all the sprites, puts the alex kidd logo on screen
+	; then we're ready to do everything else
 	xor  a
 	ld   ($C10A), a
 	; disable display and reset a bunch of stuff including scroll
@@ -820,8 +824,8 @@ _LABEL_76D_94:
 	ld   a, $82
 	ld   ($FFFF), a
 	call _LABEL_9DF3_45 ; turns sound channels to 0 volume and fills C111 - C1F5 with 00
-	call _LABEL_43B_102 ; subtracts ($c020) from ($c000) and moves a few bytes across
-	; copy 0x1d bytes forward from $c021
+	call _LABEL_43B_102 ; copies from ($C020) to ($C000) if one is bigger - seems to track which demo is playing
+	; zero out C020-DDFF
 	ld   hl, $C020
 	ld   de, $C021
 	ld   bc, $1DDF
@@ -833,6 +837,7 @@ _LABEL_76D_94:
 	; zero out $C227 and $C228
 	ld   ($C227), a
 	ld   ($C228), a
+	; load rom 4 in bank 2
 	ld   a, $84
 	ld   ($FFFF), a
 	ld   hl, $B332

@@ -111,15 +111,27 @@ $85 does the following:
 - finally enables interrupts and display (checking against $C004)
 
 vars so far
+C000-C003 = a 32 bit number?
 C004 = VDP register 1 (cached for easy enable/disable)
 C005 = some localisation stuff (0 for us)
+C006 = joypad sync (the demos in start screen actually use this)
+C007 = flickers when character changes direction
 C008 = used by $2E6 to wake up from sleep, also used to decide what to do in interrupt handler (maybe it's set with options then wait for int?)
+C009 = alternates when alex walks, 0B/0C, and goes briefly to 0D when punching
 C01F = used as part of rst $20 to decide part of your long jump, also referenced in interrupt handler? maybe pointer to some state object?
+C020-C023 = another 32 bit number? looks to be the number of the preview that is playing at the start screen
+C07C = changed when i punched a question mark box and got the ring
+C0AB-C0B0 = hscroll
+C0B9-C0C6 = vscroll
 C0AF = scroll counter?
-C0BD = scroll counter?
 C0AB = scroll counter?
 C0B9 = scroll counter?
+C0BD = scroll counter?
+C100 = constantly ticking while game is running but just low nybble
+C10D = constantly incremnting while game is running
 C111-C1F5 = something that gets reset at $9DF3 - some locally stored tile data?
+C11B-C182 = all seems to change with the music
+C226 = gets set to 3C as part of start screen init
 C700-C7FF = local cache of sprite table ($1F7 syncs this to VRAM)
 
 easy so far, just initalising everything, and then display and interrupts enabled for when we hit $53
