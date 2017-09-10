@@ -226,7 +226,8 @@ _LABEL_C0_13:
 	push af
 	; call conditional on carry flag - carry flag gets set if `a` from above has lsb set (1)
 	; bit 0
-	; update sprites if bit 0 is set
+	; update tile/spritemap if bit 0 is set (copies C700-C73F and C780-C7FF to VRAM 3900-393F and 3980-39FF)
+	; $E7
 	call c, _LABEL_1F7_15
 	; compare $C200 with $C201
 	call _LABEL_41B3_24
@@ -297,11 +298,16 @@ _LABEL_13F_38:
 .db $72, $01, $3D, $C2, $72, $01, $C9
 
 _LABEL_17C_101:
+	; clear screen display (set 3800-3EFF to 00)
 	ld   de, $7800
 	ld   bc, $0700
 	ld   l, $00
+	; set VRAM pointer to 3800 (screen display)
 _LABEL_184_9:
-	; gets called by a couple places that make bulk changes to tile map
+	; fill vram
+	; de = 4000 + starting point (so 7800 -> vram 3800)
+	; bc = size (0700 = 700 bytes)
+	; l = value (00)
 	rst  $8; writes de to $BF
 	ld   a, c
 	or   a
@@ -367,13 +373,13 @@ _LABEL_1F7_15:
 	bit  0, (hl)
 	jr   z, _LABEL_224_17
 _LABEL_208_16:
-	; copy first 64 sprites
+	; sync sprites from C700 to VRAM
 	; send 7F00 to VDP register
 	; this is (0x7000 + 0x3F00) = write to 0x3F00 in VRAM
 	; Screen display: 32x28 table of tile numbers/attributes
 	; in other words, update on-screen tiles
 	; then copy 0x40 bytes from $C700 to port 0xBE
-	; this is the first 64 sprites
+	; this is the y position of each of 64 sprites
 	ld   hl, $C700
 	ld   de, $7F00
 	ld   bc, $40BE
@@ -381,8 +387,8 @@ _LABEL_208_16:
 _LABEL_212_18:
 	outi
 	jr   nz, _LABEL_212_18
-	; copy next 128 sprites
-	; 192 sprites all up, plus 64 between 0x3f40 and 0x3f80
+	; copy sprite x coordinates and tiles
+	; these are in (x, tile_id) pairs
 	; memove(c780_local, 3f80_vram, 0x80)
 	ld   hl, $C780
 	ld   de, $7F80
@@ -582,6 +588,7 @@ _LABEL_311_96:
 	ld   ($C0BD), hl
 	ld   ($C0AB), hl
 	ld   ($C0B9), hl
+	; fill from C700 to C7BF with E0
 	ld   hl, $C700
 	ld   de, $C701
 	ld   bc, $00BF
@@ -592,11 +599,14 @@ _LABEL_311_96:
 	rst  $8
 	ld   d, $89
 	rst  $8
+	; enable interrupts
 	ei
 	; set bottom-most sync bit, busy wait
+	; this gets it to sync $C700 to sprite info table (done in interrupt)
 	ld   a, $01
 	call _LABEL_2E6_99
 	di
+	; clear screen display
 	jp   _LABEL_17C_101
 
 _LABEL_341_4:
@@ -791,19 +801,25 @@ _LABEL_76D_94:
 	bit  7, (hl)
 	; nothing to do so short circuit to busy wait
 	jp   nz, _LABEL_7EC_95
+	; set bit ($C01F) and don't come back in here until it gets re-set
 	set  7, (hl)
 	xor  a
 	ld   ($C10A), a
 	; disable display and reset a bunch of stuff including scroll
+	; populates base sprite/tile data (done in interrupt)
+	; clears screen display
 	call _LABEL_311_96
 	ld   de, $6000
 	ld   bc, $0020
 	ld   l, $00
-	; write second batch of sprite/tile patterns
+	; zeroes out first 0x20 bytes from vram 2000
+	; (first 0x20 sprites are special maybe? all we use?)
+	; address $784
 	call _LABEL_184_9
+	; load memory bank 2
 	ld   a, $82
 	ld   ($FFFF), a
-	call _LABEL_9DF3_45 ; set sound frequency, moves a string of stuff along by 1
+	call _LABEL_9DF3_45 ; turns sound channels to 0 volume and fills C111 - C1F5 with 00
 	call _LABEL_43B_102 ; subtracts ($c020) from ($c000) and moves a few bytes across
 	; copy 0x1d bytes forward from $c021
 	ld   hl, $C020

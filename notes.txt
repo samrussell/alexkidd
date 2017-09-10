@@ -113,8 +113,37 @@ $85 does the following:
 vars so far
 C004 = VDP register 1 (cached for easy enable/disable)
 C005 = some localisation stuff (0 for us)
+C008 = used by $2E6 to wake up from sleep, also used to decide what to do in interrupt handler (maybe it's set with options then wait for int?)
+C01F = used as part of rst $20 to decide part of your long jump, also referenced in interrupt handler? maybe pointer to some state object?
+C0AF = scroll counter?
+C0BD = scroll counter?
+C0AB = scroll counter?
+C0B9 = scroll counter?
+C111-C1F5 = something that gets reset at $9DF3 - some locally stored tile data?
+C700-C7FF = local cache of sprite table ($1F7 syncs this to VRAM)
 
 easy so far, just initalising everything, and then display and interrupts enabled for when we hit $53
 
 $57 is the loading screen loop, but $53 zeroes out $C01F first... this is where we get our a for when we jump to $20
 at least we know $57 is actually the start of everything, and by extension, $76D
+var C01F is quite interesting - when it's 00 or 80 we get sent to 76D, but when it's 80 we do the short circuit
+looks like we set it to 02 but only the non-disassembled code makes other changes :/
+
+i think the hard part is going to be mapping out all the stuff that can go via $20, but it's a bit of a blessing too
+- we have some sort of event loop here and pull a variety of methods out that should serve similar purposes
+
+but first things first - let's port the alex kidd loading screen!
+
+first time to 76D: vram empty, (h1) is 0 so carry on through
+once we get to $784 sprite info table populated: 64xE0, 64x00, 64xE0, 64x00
+i think this is done in the interrupt handler though - we enable interrupts and sleep
+looks like $212 is the culprit here
+stack trace goes $EA (inside interrput handler)
+looks like is $E7
+ok so $1F7 does a bunch of stuff
+we have 512 tiles/sprites - we copy from C700-C73F to VRAM 3800-383F, then from C780-C7FF to 3880-38FF
+basically we copy the first quarter and second half of C700, and the last quarter happens to be blank (hence the alternating chunks of E0/00)
+it feels more and more like $C008 is an interrupt call - hit it and it'll call your interrupt, and sleep/busywait until it returns (locks etc)
+anyway we're losing focus
+
+found out what the E0 is - it's 224 (past the end of the screen). the E0/00 thing sets all sprites to sprite #00 and position 224,224 (off end of screen)
