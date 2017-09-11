@@ -874,7 +874,7 @@ _LABEL_76D_94:
 	rst  $30
 	; 7da
 	; palette now updated
-	call _LABEL_8F6_113
+	call _LABEL_8F6_113 ; <- look at how this loads the sprites/tiles - this includes alex, janken, and backgrounds
 	; other sprites loaded (not just logo but the stuff that pops up during loading screen)
 	call _LABEL_2F6_92 ; enable display
 	; no change observed to maps
@@ -886,8 +886,12 @@ _LABEL_76D_94:
 _LABEL_7EC_95:
 	;set vsync bits 3 and 0 and busy wait
 	ld   a, $09
-	call _LABEL_2E6_99
-	call _LABEL_2694_121
+	; this plays out the first chunk of music - we should see where it goes
+	; a = 0x01 + 0x08
+	; the 0x08 means we get sent to $842 at the end of the interrupt loop
+	call _LABEL_2E6_99 ; int whatever... with a=09
+	; we get to here after the first second of music and first sprite (underwater top right) displayed
+	call _LABEL_2694_121 ; didn't look too closely, looks to be a bunch of init stuff
 	ld   a, ($C006) ; a = bitmask of joypad buttons
 	ld   b, a
 	and  $30
@@ -933,7 +937,9 @@ _LABEL_842_40:
 	inc  hl
 	ld   a, (hl)
 	cp   $06
-	jr   c, _LABEL_866_41
+	jr   c, _LABEL_866_41 ; jump if ($C227) is less than 6
+	; if we haven't jumped then $C227 is 6 or more
+	; this might be where we pick a demo and start that?
 	dec  hl
 	ld   (hl), $03
 	inc  hl
@@ -957,6 +963,36 @@ _LABEL_866_41:
 	ld   hl, $08E6
 	jp   _RST_20H
 
+; 872-8F5 disassembled
+ld     hl,$aefc
+ld     de,$7828
+ld     bc,$0718
+call   $0193
+jp     $09c2
+ld     hl,$b0a4
+ld     de,$7b98
+ld     bc,$061c
+call   $0193
+jp     $097e
+ld     hl,$afa4
+ld     de,$7800
+ld     bc,$080e
+jp     $0193
+ld     hl,$b014
+ld     de,$79f4
+ld     bc,$0c0c
+call   $0193
+jp     $0967
+ld     hl,$b1b2
+ld     de,$7a00
+ld     bc,$1018
+call   $0193
+jp     $0995
+ld     hl,$b14c
+ld     de,$7d1a
+ld     bc,$0322
+jp     $0193
+; $8C6-$8F5 appears to be data
 
 ; Data from 872 to 8F5 (132 bytes)
 .db $21, $FC, $AE, $11, $28, $78, $01, $18, $07, $CD, $93, $01, $C3, $C2, $09, $21
@@ -1023,6 +1059,42 @@ _LABEL_95F_120:
 	djnz _LABEL_95F_120
 	ret
 
+; 967-9D8 disassembled
+
+ld     ix,$c300
+ld     (ix+$00),$18
+ld     hl,$c800
+ld     ($c307),hl
+ld     (ix+$0c),$dc
+ld     (ix+$0e),$46
+ret
+ld     ix,$c320
+ld     (ix+$00),$18
+ld     hl,$c828
+ld     ($c327),hl
+ld     (ix+$0c),$70
+ld     (ix+$0e),$7c
+ret
+ld     ix,$c340
+ld     (ix+$00),$18
+ld     hl,$c850
+ld     ($c347),hl
+ld     (ix+$0c),$18
+ld     (ix+$0e),$4f
+ld     ix,$c3c0
+ld     (ix+$00),$18
+ld     hl,$961a
+ld     ($c3c7),hl
+ld     (ix+$0c),$30
+ld     (ix+$0e),$77
+ret
+ld     ix,$c360
+ld     (ix+$00),$18
+ld     hl,$c878
+ld     ($c367),hl
+ld     (ix+$0c),$c9
+ld     (ix+$0e),$0c
+ret
 
 ; Data from 967 to 9D8 (114 bytes)
 .db $DD, $21, $00, $C3, $DD, $36, $00, $18, $21, $00, $C8, $22, $07, $C3, $DD, $36
@@ -4699,13 +4771,13 @@ _LABEL_26A2_144:
 	jp   z, _LABEL_26C0_122
 	push bc
 	ld   hl, $2890
-	rst  $20
+	rst  $20 ; this just returns?!
 	ld   a, (ix+0)
 	or   a
 	jp   z, _LABEL_26BF_123
-	call _LABEL_27D0_124
-	call _LABEL_273A_128
-	call _LABEL_26D7_131
+	call _LABEL_27D0_124 ; some sort of sanity checking of some pointers in mem
+	call _LABEL_273A_128 ;presets/clears a large swathe of memory
+	call _LABEL_26D7_131 ; similar
 _LABEL_26BF_123:
 	pop  bc
 _LABEL_26C0_122:

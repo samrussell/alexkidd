@@ -131,7 +131,8 @@ C100 = constantly ticking while game is running but just low nybble
 C10D = constantly incremnting while game is running
 C111-C1F5 = something that gets reset at $9DF3 - some locally stored tile data?
 C11B-C182 = all seems to change with the music
-C226 = gets set to 3C as part of start screen init
+C226 = gets set to 3C as part of start screen init (timer between loading stuff?)
+C227 = pointer to which blob to load next on start screen (of the different pictures of alex swimming etc)
 C700-C7FF = local cache of sprite table ($1F7 syncs this to VRAM)
 
 easy so far, just initalising everything, and then display and interrupts enabled for when we hit $53
@@ -176,3 +177,49 @@ extract 12E46=77382 07x1A = 182 bytes
 extract 08C6=2246 0x20 = 32 bytes
 
 this is enough for now - time to build the app that displays this
+
+trying to install emscripten so will look more in the meantime
+
+everything we're finding so far seems to be setup, and then $7EC seems to be the bit that always gets called
+$7EC sets a to 0x09 and jumps to the "wait for interrupt" bit, meaning $842 gets hit
+$842 seems to get hit multiple times per second and looks like it's driving the whole thing, so worth a closer look here
+breaking on $20 tells us
+- we flit between a=0, hl=3b/127 (jumping to 76D and 842)
+- when we're loading tiles (occasionally) we have a=18 and hl=2890, this gets address from $28C0
+- this jumps us to $966 (just returns?!)
+- this call happens in the _LABEL_2694_121 handler
+- maybe this is a red herring... would be better off bping vram
+
+i put a bp on $397C in VRAM - just to the right of ALEX
+looks like sprites get updated by OUTI at $198
+we have rom bank 4 in
+hl=af8c (12F8C on rom)
+obviously this is making use of $193 for printing blocks
+
+stack is 218 (should just be bc), actual return is $87E
+just my luck - this never got disassembled
+hard to reverse from here, all of this is long jumps via rst $20
+btw windows z80dasm is pretty good for disassembling snippets
+doing about 80 breaks on $20 gives us a hit with hl=8E6, a=0
+this is good; of the 872 to 8F5 block, only 872-8C5 is code, the rest is data
+#1: at 8E6 we get a pointer to 872 - this is what we were expecting
+#2: we know what called us - SP is pointing at 107
+this is kind of weird though - a is 0 (expected) but hl is 8E6
+if we are returning to 107 then we got called by $104 which does the call (via $20) to 842
+so there must be something near the end of 842 that does a RST $20 call
+so that's _LABEL_866_41 - 842 polls on $C226 as a timer (resets to 0x20=32 when it goes through)
+then it checks $C227 - if it's less than 6 then go to $866
+the nice thing is that our a is our offset to 8E6
+pointers are $872, $881, $890, $89C, $8AB, $8BA - 6 different states (0-5)
+while we're here, it looks like rom bank 4 is common for storing a lot of our tiles/tilemaps
+also let's break on $866 for giggles
+first time - a=0
+second time - a=1
+actually this is trivial - hl is still pointing at C227 and we increment it every time
+the nice thing is that the other counter gates 846 - it doesn't do any music, it just loads tilemaps
+... oh and when C227 hits 6 then it starts a demo - i think C228 might be the demo counter
+nope, it's the flashing alex kidd one - C228 is how many ticks we've done of flashing
+it does 0x48 ticks of flashes and then goes onto demo
+C220 seems to increment rapidly, C222 is overflow from when C220 hits 0x12
+rather, C220 goes from 0x12 to 0x00 and when it hits 0x11 it increments C222
+C200 and C201 seem to alternate as alex's underwater feet move
