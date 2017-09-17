@@ -87,7 +87,6 @@ int main()
     tiles[tileNum] = tile;
   }
 
-
   // this needs to become a BitBlt style method
   FILE* logo1 = fopen("assets/logo1.dat", "rb");
   Uint16 logo1Tiles[14*6];
@@ -95,7 +94,7 @@ int main()
   fclose(logo1);
 
   // print from (7, 2)
-  // width 13, height 7 (odd coincidence)
+  // width 14, height 6
 
   int col1Offset = 7;
   int row1Offset = 2;
@@ -125,6 +124,23 @@ int main()
     }
   }
 
+  FILE* logo3 = fopen("assets/logosnippet1.dat", "rb");
+  Uint16 logo3Tiles[12*7];
+  fread(logo3Tiles, 1, 12*7*2, logo3);
+  fclose(logo3);
+
+  // print from (20, 0)
+  // width 12, height 7
+  
+  int col3Offset = 20;
+  int row3Offset = 0;
+  for(int row=0; row<7; row++){
+    for(int col=0; col<12; col++){
+      Uint32 tileIndex = logo3Tiles[row*12 + col];
+      Uint32* tile = tiles[tileIndex & 0xFF];
+      printTile(pixels, tile, (col3Offset + col)*8, (row3Offset + row)*8);
+    }
+  }
 
   SDL_UpdateTexture(texture, NULL, screen->pixels, screen->pitch);
   SDL_RenderClear(renderer);

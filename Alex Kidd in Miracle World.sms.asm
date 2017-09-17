@@ -964,33 +964,33 @@ _LABEL_866_41:
 	jp   _RST_20H
 
 ; 872-8F5 disassembled
-ld     hl,$aefc
-ld     de,$7828
-ld     bc,$0718
+ld     hl,$aefc ; 0x12EFC = 77564 in ROM
+ld     de,$7828 ; start at (20, 0) - (y_coord + x_coord+row_length)*bytes_in_word = (20 + 0*32)*2 = 40 = 0x28
+ld     bc,$0718 ; height 7, width 12, 7*24*2 = 336 bytes
 call   $0193
 jp     $09c2
-ld     hl,$b0a4
+ld     hl,$b0a4 ; 130A4 in ROM
 ld     de,$7b98
-ld     bc,$061c
+ld     bc,$061c ; height 6, width 14
 call   $0193
 jp     $097e
-ld     hl,$afa4
+ld     hl,$afa4 ; 12FA4 in ROM
 ld     de,$7800
-ld     bc,$080e
+ld     bc,$080e ; height 8, width 14
 jp     $0193
-ld     hl,$b014
+ld     hl,$b014 ; 13014 in ROM
 ld     de,$79f4
-ld     bc,$0c0c
+ld     bc,$0c0c ; height 12, width 6
 call   $0193
 jp     $0967
-ld     hl,$b1b2
+ld     hl,$b1b2 ; 131B2 in ROM
 ld     de,$7a00
-ld     bc,$1018
+ld     bc,$1018 ; height 16, width 12
 call   $0193
 jp     $0995
-ld     hl,$b14c
+ld     hl,$b14c ; 1314C in ROM
 ld     de,$7d1a
-ld     bc,$0322
+ld     bc,$0322 ; height 3, width 17
 jp     $0193
 ; $8C6-$8F5 appears to be data
 
@@ -1060,6 +1060,8 @@ _LABEL_95F_120:
 	ret
 
 ; 967-9D8 disassembled
+; my guess for these is putting sprites over top
+; deal with this later
 
 ld     ix,$c300
 ld     (ix+$00),$18

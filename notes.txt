@@ -223,3 +223,7 @@ it does 0x48 ticks of flashes and then goes onto demo
 C220 seems to increment rapidly, C222 is overflow from when C220 hits 0x12
 rather, C220 goes from 0x12 to 0x00 and when it hits 0x11 it increments C222
 C200 and C201 seem to alternate as alex's underwater feet move
+
+ok so we've got the logo working on the start screen, let's next look at how to put the other stuff on screen
+go from $842
+bp $847 to catch when they get loaded
