@@ -87,52 +87,44 @@ int main()
     tiles[tileNum] = tile;
   }
 
-  // print some tiles to screen for good measure
-  // this is in the tilemap file but we'll handle that tomorrow
-  printTile(pixels, tiles[66], 9*8,  2*8);
-  printTile(pixels, tiles[67], 10*8, 2*8);
-  printTile(pixels, tiles[68], 11*8, 2*8);
-  printTile(pixels, tiles[69], 13*8, 2*8);
-  printTile(pixels, tiles[70], 14*8, 2*8);
-  printTile(pixels, tiles[71], 15*8, 2*8);
-  printTile(pixels, tiles[72], 17*8, 2*8);
 
-  printTile(pixels, tiles[73], 8*8,  3*8);
-  printTile(pixels, tiles[74], 9*8,  3*8);
-  printTile(pixels, tiles[75], 10*8, 3*8);
-  printTile(pixels, tiles[76], 11*8, 3*8);
-  printTile(pixels, tiles[77], 12*8, 3*8);
-  printTile(pixels, tiles[78], 13*8, 3*8);
-  printTile(pixels, tiles[79], 14*8, 3*8);
-  printTile(pixels, tiles[80], 15*8, 3*8);
-  printTile(pixels, tiles[81], 16*8, 3*8);
-  printTile(pixels, tiles[82], 17*8, 3*8);
-  printTile(pixels, tiles[83], 18*8, 3*8);
+  // this needs to become a BitBlt style method
+  FILE* logo1 = fopen("assets/logo1.dat", "rb");
+  Uint16 logo1Tiles[14*6];
+  fread(logo1Tiles, 1, 14*6*2, logo1);
+  fclose(logo1);
 
-  printTile(pixels, tiles[84], 8*8,  4*8);
-  printTile(pixels, tiles[85], 9*8,  4*8);
-  printTile(pixels, tiles[86], 10*8, 4*8);
-  printTile(pixels, tiles[87], 11*8, 4*8);
-  printTile(pixels, tiles[88], 12*8, 4*8);
-  printTile(pixels, tiles[89], 13*8, 4*8);
-  printTile(pixels, tiles[90], 14*8, 4*8);
-  printTile(pixels, tiles[91], 15*8, 4*8);
-  printTile(pixels, tiles[92], 16*8, 4*8);
-  printTile(pixels, tiles[93], 17*8, 4*8);
-  printTile(pixels, tiles[94], 18*8, 4*8);
+  // print from (7, 2)
+  // width 13, height 7 (odd coincidence)
 
-  printTile(pixels, tiles[95],  8*8,  5*8);
-  printTile(pixels, tiles[96],  9*8,  5*8);
-  printTile(pixels, tiles[97],  10*8, 5*8);
-  printTile(pixels, tiles[98],  11*8, 5*8);
-  printTile(pixels, tiles[99],  12*8, 5*8);
-  printTile(pixels, tiles[100], 13*8, 5*8);
-  printTile(pixels, tiles[101], 14*8, 5*8);
-  printTile(pixels, tiles[102], 15*8, 5*8);
-  printTile(pixels, tiles[103], 16*8, 5*8);
-  printTile(pixels, tiles[104], 17*8, 5*8);
+  int col1Offset = 7;
+  int row1Offset = 2;
+  for(int row=0; row<6; row++){
+    for(int col=0; col<14; col++){
+      Uint32 tileIndex = logo1Tiles[row*14 + col];
+      Uint32* tile = tiles[tileIndex & 0xFF];
+      printTile(pixels, tile, (col1Offset + col)*8, (row1Offset + row)*8);
+    }
+  }
 
-  // ... you get the idea
+  FILE* logo2 = fopen("assets/logo2.dat", "rb");
+  Uint16 logo2Tiles[13*7];
+  fread(logo2Tiles, 1, 13*7*2, logo2);
+  fclose(logo2);
+
+  // print from (13, 7)
+  // width 13, height 7 (odd coincidence)
+
+  int col2Offset = 13;
+  int row2Offset = 7;
+  for(int row=0; row<7; row++){
+    for(int col=0; col<13; col++){
+      Uint32 tileIndex = logo2Tiles[row*13 + col];
+      Uint32* tile = tiles[tileIndex & 0xFF];
+      printTile(pixels, tile, (col2Offset + col)*8, (row2Offset + row)*8);
+    }
+  }
+
 
   SDL_UpdateTexture(texture, NULL, screen->pixels, screen->pitch);
   SDL_RenderClear(renderer);
