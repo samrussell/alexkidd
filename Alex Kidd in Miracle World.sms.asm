@@ -966,29 +966,29 @@ _LABEL_866_41:
 ; 872-8F5 disassembled
 ld     hl,$aefc ; 0x12EFC = 77564 in ROM
 ld     de,$7828 ; start at (20, 0) - (y_coord + x_coord+row_length)*bytes_in_word = (20 + 0*32)*2 = 40 = 0x28
-ld     bc,$0718 ; height 7, width 12, 7*24*2 = 336 bytes
+ld     bc,$0718 ; height 7, width 12, 7*12*2 = 168 bytes
 call   $0193
 jp     $09c2
-ld     hl,$b0a4 ; 130A4 in ROM
-ld     de,$7b98
-ld     bc,$061c ; height 6, width 14
+ld     hl,$b0a4 ; 0x130A4 = 77988 in ROM
+ld     de,$7b98 ; start at (12, 14) - (y_coord + x_coord+row_length)*bytes_in_word = (12 + 14*32)*2 = 920 = 0x398
+ld     bc,$061c ; height 6, width 14, 6*14*2 = 168 bytes
 call   $0193
 jp     $097e
-ld     hl,$afa4 ; 12FA4 in ROM
+ld     hl,$afa4 ; 0x12FA4 = 77732 in ROM
 ld     de,$7800
 ld     bc,$080e ; height 8, width 14
 jp     $0193
-ld     hl,$b014 ; 13014 in ROM
+ld     hl,$b014 ; 0x13014 = 77844 in ROM
 ld     de,$79f4
 ld     bc,$0c0c ; height 12, width 6
 call   $0193
 jp     $0967
-ld     hl,$b1b2 ; 131B2 in ROM
+ld     hl,$b1b2 ; 0x131B2 = 78258 in ROM
 ld     de,$7a00
 ld     bc,$1018 ; height 16, width 12
 call   $0193
 jp     $0995
-ld     hl,$b14c ; 1314C in ROM
+ld     hl,$b14c ; 0x1314C = 78156 in ROM
 ld     de,$7d1a
 ld     bc,$0322 ; height 3, width 17
 jp     $0193
