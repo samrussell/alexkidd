@@ -5,12 +5,50 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-void printTile(Uint32* pixels, Uint32* tile, Uint32 x, Uint32 y){
+void printTile(Uint32* pixels, Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers){
   for(int rowNum=0; rowNum<8; rowNum++){
     for(int columnNum=0; columnNum<8; columnNum++){
-      pixels[(y + rowNum)*256 + (x + columnNum)] = tile[rowNum*8 + columnNum];
+      Uint32 sourceRow = rowNum;
+      Uint32 sourceColumn = columnNum;
+      // horizontal flip
+      if (modifiers & 0x200) {
+        sourceColumn = 7 - sourceColumn;
+      }
+      // vertical flip
+      if (modifiers & 0x400) {
+        sourceRow = 7 - sourceRow;
+      }
+      pixels[(y + rowNum)*256 + (x + columnNum)] = tile[sourceRow*8 + sourceColumn];
     }   
   }
+}
+
+class TileBlock {
+    int width, height;
+    Uint16* tileData;
+  public:
+    TileBlock(int width, int height, Uint16* tileData);
+    Uint16 tile(int column, int row);
+};
+
+TileBlock::TileBlock(int width, int height, Uint16* tileData){
+  this->width = width;
+  this->height = height;
+  this->tileData = tileData;
+}
+
+Uint16 TileBlock::tile(int column, int row){
+  return this->tileData[row*this->width + column];
+}
+
+TileBlock* loadTiles(const char* filename, int width, int height){
+  FILE* tileFile = fopen(filename, "rb");
+  int dataCount = width * height;
+  Uint16* tileData = new Uint16[dataCount];
+  fread(tileData, 1, dataCount * sizeof(tileData), tileFile);
+  fclose(tileFile);
+
+  return new TileBlock(width, height, tileData);
 }
 
 int main()
@@ -62,7 +100,7 @@ int main()
 
   for(int tileNum=0; tileNum<512; tileNum++){
     Uint32 tileOffset = tileNum * 8;
-    Uint32* tile = malloc(8*8*sizeof(Uint32));
+    Uint32* tile = new Uint32[8*8];
     for(int rowNum=0; rowNum<8; rowNum++){
       // we do row at a time
       // 4 bits per pixel, striped across
@@ -88,11 +126,8 @@ int main()
   }
 
   // this needs to become a BitBlt style method
-  FILE* logo1 = fopen("assets/logo1.dat", "rb");
-  Uint16 logo1Tiles[14*6];
-  fread(logo1Tiles, 1, 14*6*2, logo1);
-  fclose(logo1);
-
+  TileBlock* logo1Tiles = loadTiles("assets/logo1.dat", 14, 6);
+  
   // print from (7, 2)
   // width 14, height 6
 
@@ -100,9 +135,10 @@ int main()
   int row1Offset = 2;
   for(int row=0; row<6; row++){
     for(int col=0; col<14; col++){
-      Uint32 tileIndex = logo1Tiles[row*14 + col];
-      Uint32* tile = tiles[tileIndex & 0xFF];
-      printTile(pixels, tile, (col1Offset + col)*8, (row1Offset + row)*8);
+      Uint32 tileIndex = logo1Tiles->tile(col, row);
+      Uint32* tile = tiles[tileIndex & 0x1FF];
+      Uint32 modifiers = tileIndex & 0xFE00;
+      printTile(pixels, tile, (col1Offset + col)*8, (row1Offset + row)*8, modifiers);
     }
   }
 
@@ -119,8 +155,9 @@ int main()
   for(int row=0; row<7; row++){
     for(int col=0; col<13; col++){
       Uint32 tileIndex = logo2Tiles[row*13 + col];
-      Uint32* tile = tiles[tileIndex & 0xFF];
-      printTile(pixels, tile, (col2Offset + col)*8, (row2Offset + row)*8);
+      Uint32* tile = tiles[tileIndex & 0x1FF];
+      Uint32 modifiers = tileIndex & 0xFE00;
+      printTile(pixels, tile, (col2Offset + col)*8, (row2Offset + row)*8, modifiers);
     }
   }
 
@@ -137,8 +174,9 @@ int main()
   for(int row=0; row<7; row++){
     for(int col=0; col<12; col++){
       Uint32 tileIndex = logo3Tiles[row*12 + col];
-      Uint32* tile = tiles[tileIndex & 0xFF];
-      printTile(pixels, tile, (col3Offset + col)*8, (row3Offset + row)*8);
+      Uint32* tile = tiles[tileIndex & 0x1FF];
+      Uint32 modifiers = tileIndex & 0xFE00;
+      printTile(pixels, tile, (col3Offset + col)*8, (row3Offset + row)*8, modifiers);
     }
   }
 
