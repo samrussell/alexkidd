@@ -167,10 +167,18 @@ int main()
   TileBlock* logo2Tiles = loadTiles("assets/logo2.dat", 13, 7);
   TileBlock* logo3Tiles = loadTiles("assets/logosnippet1.dat", 12, 7);
   TileBlock* logo4Tiles = loadTiles("assets/logosnippet2.dat", 14, 6);
+  TileBlock* logo5Tiles = loadTiles("assets/logosnippet3.dat", 7, 8);
+  TileBlock* logo6Tiles = loadTiles("assets/logosnippet4.dat", 6, 12);
+  TileBlock* logo7Tiles = loadTiles("assets/logosnippet5.dat", 12, 16);
+  TileBlock* logo8Tiles = loadTiles("assets/logosnippet6.dat", 17, 3);
   printTileBlock(logo1Tiles, display, tiles, 7, 2);
   printTileBlock(logo2Tiles, display, tiles, 13, 7);
   printTileBlock(logo3Tiles, display, tiles, 20, 0);
   printTileBlock(logo4Tiles, display, tiles, 12, 14);
+  printTileBlock(logo5Tiles, display, tiles, 0, 0);
+  printTileBlock(logo6Tiles, display, tiles, 26, 7);
+  printTileBlock(logo7Tiles, display, tiles, 0, 8);
+  printTileBlock(logo8Tiles, display, tiles, 13, 20);
 
   display->render();
   printf("done\n");

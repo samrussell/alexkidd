@@ -975,22 +975,22 @@ ld     bc,$061c ; height 6, width 14, 6*14*2 = 168 bytes
 call   $0193
 jp     $097e
 ld     hl,$afa4 ; 0x12FA4 = 77732 in ROM
-ld     de,$7800
-ld     bc,$080e ; height 8, width 14
+ld     de,$7800 ; start at (0, 0)
+ld     bc,$080e ; height 8, width 7, 8*7*2 = 112 bytes
 jp     $0193
 ld     hl,$b014 ; 0x13014 = 77844 in ROM
-ld     de,$79f4
-ld     bc,$0c0c ; height 12, width 6
+ld     de,$79f4 ; start at (26, 7) - (y_coord + x_coord+row_length)*bytes_in_word = (26 + 7*32)*2 = 500 = 0x1F4
+ld     bc,$0c0c ; height 12, width 6, 12*6*2 = 144 bytes
 call   $0193
 jp     $0967
 ld     hl,$b1b2 ; 0x131B2 = 78258 in ROM
-ld     de,$7a00
-ld     bc,$1018 ; height 16, width 12
+ld     de,$7a00 ; start at (0, 8) - (y_coord + x_coord+row_length)*bytes_in_word = (0 + 8*32)*2 = 512 = 0x200
+ld     bc,$1018 ; height 16, width 12, 16*12*2 = 384 bytes
 call   $0193
 jp     $0995
 ld     hl,$b14c ; 0x1314C = 78156 in ROM
-ld     de,$7d1a
-ld     bc,$0322 ; height 3, width 17
+ld     de,$7d1a ; start at (13, 20) - (y_coord + x_coord+row_length)*bytes_in_word = (13 + 20*32)*2 = 1306 = 0x51A
+ld     bc,$0322 ; height 3, width 17, 3*17*2 = 102 bytes
 jp     $0193
 ; $8C6-$8F5 appears to be data
 
