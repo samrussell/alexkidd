@@ -121,6 +121,8 @@ C009 = alternates when alex walks, 0B/0C, and goes briefly to 0D when punching
 C01F = used as part of rst $20 to decide part of your long jump, also referenced in interrupt handler? maybe pointer to some state object?
 C020-C023 = another 32 bit number? looks to be the number of the preview that is playing at the start screen
 C07C = changed when i punched a question mark box and got the ring
+C0F8 = how many alex sprites (often 0x20 or less)
+C0F9 = location of alex sprites in memory
 C0AB-C0B0 = hscroll
 C0B9-C0C6 = vscroll
 C0AF = scroll counter?
@@ -133,7 +135,9 @@ C111-C1F5 = something that gets reset at $9DF3 - some locally stored tile data?
 C11B-C182 = all seems to change with the music
 C226 = gets set to 3C as part of start screen init (timer between loading stuff?)
 C227 = pointer to which blob to load next on start screen (of the different pictures of alex swimming etc)
+C300 = local cache of sprites too (alex/janken etc)
 C700-C7FF = local cache of sprite table ($1F7 syncs this to VRAM)
+C800-C899? = some other stuff that gets populated in $951 - references to sprite tiles maybe?
 
 easy so far, just initalising everything, and then display and interrupts enabled for when we hit $53
 
@@ -227,3 +231,81 @@ C200 and C201 seem to alternate as alex's underwater feet move
 ok so we've got the logo working on the start screen, let's next look at how to put the other stuff on screen
 go from $842
 bp $847 to catch when they get loaded
+
+got all this stuff loaded, let's look at the sprite loading
+first sprite (alex in the water) is set up by the jump to $9C2 and data is stored at $C300
+$8F6 is the part where they get copied across to VRAM
+we do ($C0F8) = 0x1E and ($C0F9) = $C300 so this is a big clue
+then call $9D9 - this initialises b and hl to the same values?! then loops through _LABEL_278D_115
+this just seems to initialise all the sprite data - all 0x1E of them, each 0x20 bytes by the looks, must be called beforehand
+we should probably pull apart _LABEL_8F6_113 so we can actually load the tiles for our sprites
+[side note - this feels like a distraction from reversing the game itself, but it's also teaching me a lot about how the game stages data]
+ok so the loader at _LABEL_41C0_117 looks legit
+i was scanning the rom and found similar data at $10D46 that lines up with what we dump in, but it might be a red herring?
+anyway we load from $8000 in Z80 from bank 4 = $10000 in ROM, so $10D46 makes sense...ish
+layout at $8000 looks split - looks like a bunch of pointers here ($8060, $806B, $8078, $8085 etc), code supports some sort of lookup
+then looking at $8060 ($10060 ROM) we get 05 41 83 59 83 71 83 89 83 A1 83
+at $806B we get 06 41 83 59 83 B9 83 D1 83 E9 83 01 84
+at $8078 we get 06 41 83 59 83 19 84 31 84 49 84 61 84
+first is 11 bytes but the next few are 13 bytes - first number is length, then that many words words (5, 8341, 8359, 8371, 8389, 83A1)
+there's a bit where every 4th byte is the same - this means we can have sprite rows that only use half the palette and take 3 bytes (instead of 4) to encode
+actually i think all 4th bytes are the same, just a reduced sprite palette?
+let's cheat a little
+first call to $41C8 (via $41C0 which initialises stuff) loads the first 11 sprites - the helicopter sprites for some reason?
+second call loads next 11 sprites (alex pedalling?)
+third call loads a few more with alex running
+the calls make more sense now from $8F6
+first load sprite set from $8000 + 3A = $8201
+we can see the first tile comes from 9079 but this is from a different set of pointers starting at $8200?!
+ - srsly grep 79 90 in the rom, only shows up in 3 places
+ok this makes a little more sense
+$8201 has 0B 79 90 91 90 A9 90 C1 90 D9 90 F1 90 09 91 21 91 39 91 51 91 69 91
+0B = 11, 11 pointers follow
+first tile at $9079
+second tile at $9091
+etc
+each tile is fixed length (24 bytes that expand out to 32)
+so we do this 4 times and end up at $91B
+so far we have a bunch of alex sprites loaded... good start
+looks like the first 32 tiles are alex, the janken ones are just RLE stashed at $A357 (0x12357 in file) from VRAM $2400 onwards
+btw looks like we hit $41C8 a *lot* - this seems to be the base of animations (just overriding the sprites)
+we should look a little closer at _LABEL_951_119 - it doesn't load any more sprites, maybe this is the positioning?
+... but we have the positioning data so it must be something else - assume music for now?
+also what does the sprite plotting once they're loaded?
+
+cheated and did a bp on C300 - gets picked up by _LABEL_2694_121
+return is to 7F4 - i guess we know what this method does now
+_LABEL_2694_121 gets the data from $C0F9 and $C0F8
+$C0F9 is the base of where the sprites are stored ($C300 for us)
+$C0F8 is 0x1E for us, and lines up with how many alex sprites
+so this code is just for syncing alex sprites at first guess
+
+righty ho then
+$2890 is the offset table
+on the load screen, each of the 32-byte chunks have the first byte as 0x18
+this means we go via rst $20 to hl=2890, a=0x18
+which sends us to method at 0x28C0 (resolves to $966)
+which should be a plot sprite function with ix pointing at this 32 byte struct
+... or just return ($966 is a ret, before some code that never got disassembled)
+im gonna guess that's some animation handling code or some weird shit
+anyway we can continue here, turns out hl=2890, a=0x18 does sweet nothing
+a isn't zero so we still step into the big 3 after we return
+keep an eye on accesses to ix
+remember each sprite sets  and ix+0e which are probably words for x/y coords
+huh, ix+07 is references to that c800 block, so probably useful tileset/mask data
+if i grep the disasm i find tons of ix+0c references up in the 2000's in stuff i manually disasm'd
+ok so turns out it happens in _LABEL_2706_133 but this disassembler is wildly inconsistent (using decimal instead of hex here)
+ix+14 ref at _LABEL_273A_128
+also the call stack returns us to _LABEL_26BF_123, which means _LABEL_26D7_131 is the function that plots our sprites!
+let's have a look at that tomorrow and see what logic it's using there, looks quite convoluted (fun!)
+for future reference, the renderer $26FB seems to set C313 (ix+0x13) for some reason
+also ix+5 gets set?!
+i think _LABEL_26D7_131 is some post-processing, and the actual loading to screen is done elsewhere
+this does look to confirm that the C700 -> VRAM 3F00 caching is taking place (all handled in $1F7)
+so what sets C700? or rather, C706 seems to be the important one
+ok it's starting to make sense now
+$26D7 has some sort of stack it goes through
+and puts things out from wherever into C700
+terminated with 0xD0 (_LABEL_26D4_145)
+so there's a bit more work to do, but $26D7 is definitely the bit that translates from C300 to real data in C700 that then gets
+synced to screen by $1F7

@@ -874,7 +874,7 @@ _LABEL_76D_94:
 	rst  $30
 	; 7da
 	; palette now updated
-	call _LABEL_8F6_113 ; <- look at how this loads the sprites/tiles - this includes alex, janken, and backgrounds
+	call _LABEL_8F6_113 ; clears sprite memory ($C300) and loads up sprite tiles (alex/janken etc)
 	; other sprites loaded (not just logo but the stuff that pops up during loading screen)
 	call _LABEL_2F6_92 ; enable display
 	; no change observed to maps
@@ -1008,10 +1008,12 @@ jp     $0193
 _LABEL_8F6_113:
 	ld   a, $1E
 	ld   ($C0F8), a
-	ld   hl, $C300
+	ld   hl, $C300 ; $C300 is the root of our sprites
 	ld   ($C0F9), hl
-	call _LABEL_9D9_114
-	ld   a, $1D
+	call _LABEL_9D9_114 ; this clears sprite memory ($C300)
+	ld   a, $1D ; init and set bc=3A -> load sprite set 29
+	; this appears to load a bunch of the alex kidd sprites
+	; walking/jumping/helicopter/swimming
 	call _LABEL_41C0_117
 	ld   bc, $0036
 	call _LABEL_41C8_118
@@ -1021,8 +1023,8 @@ _LABEL_8F6_113:
 	call _LABEL_41C8_118
 	ld   hl, $A357
 	ld   de, $6400
-	call _LABEL_293_104
-	ld   a, $82
+	call _LABEL_293_104 ; unpack tileset from $A357 (0x12357 in file) and load into VRAM at $2400 (janken)
+	ld   a, $82 ; rom bank 2 now
 	ld   ($FFFF), a
 	ld   hl, $8F7C
 	ld   de, $C800
@@ -1090,6 +1092,7 @@ ld     ($c3c7),hl
 ld     (ix+$0c),$30
 ld     (ix+$0e),$77
 ret
+; $9C2 - first sprite
 ld     ix,$c360
 ld     (ix+$00),$18
 ld     hl,$c878
@@ -4761,7 +4764,7 @@ _LABEL_2663_37:
 .db $30, $00, $3F, $2A, $25, $0F, $03, $0B, $3C, $02, $00, $00, $00, $00, $00, $00
 .db $30, $00, $3F, $2A, $25, $0F, $03, $0B, $3C, $02, $00, $00, $00, $00, $00, $00
 
-_LABEL_2694_121:
+_LABEL_2694_121: ; syncs sprites to screen
 	ld   hl, $C706
 	ld   ($C009), hl
 	ld   ix, ($C0F9)
@@ -4796,7 +4799,7 @@ _LABEL_26D4_145:
 	ld   (hl), $D0
 	ret
 
-_LABEL_26D7_131:
+_LABEL_26D7_131: ; print alex on the screen... or at least stage stuff to somewhere in memory and something else does it?
 	ld   a, (ix+0)
 	or   a
 	ret  z
@@ -5118,14 +5121,17 @@ _LABEL_41B3_24:
 	ld   (hl), a
 	ld   hl, $C225
 	ld   (hl), $01
-_LABEL_41C0_117:
-	add  a, a
+_LABEL_41C0_117: ; writes to sprite memory at $2000, hopefully is loading
+	add  a, a ; a *= 2
 	ld   c, a
 	ld   b, $00
 	ld   de, $6000
-	rst  $8
+	rst  $8 ; set VRAM pointer to $2000 - sprite definition table
+	; bc is the offset here
+	; hl does seem to start at $8000 ($10000 in ROM)
+	; i guess we just copy them straight across?
 _LABEL_41C8_118:
-	ld   a, $84
+	ld   a, $84 ; ROM bank 4, add $8000 to convert to ROM addresses
 	ld   ($FFFF), a
 	ld   hl, $8000
 	add  hl, bc
