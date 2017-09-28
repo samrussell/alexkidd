@@ -4781,8 +4781,8 @@ _LABEL_26A2_144:
 	or   a
 	jp   z, _LABEL_26BF_123
 	call _LABEL_27D0_124 ; some sort of sanity checking of some pointers in mem
-	call _LABEL_273A_128 ;presets/clears a large swathe of memory
-	call _LABEL_26D7_131 ; similar
+	call _LABEL_273A_128 ; presets/clears a large swathe of memory
+	call _LABEL_26D7_131 ; adds sprites to sprite table cache from ix
 _LABEL_26BF_123:
 	pop  bc
 _LABEL_26C0_122:
@@ -4799,54 +4799,55 @@ _LABEL_26D4_145:
 	ld   (hl), $D0
 	ret
 
-_LABEL_26D7_131: ; print alex on the screen... or at least stage stuff to somewhere in memory and something else does it?
+_LABEL_26D7_131: ; populates sprite table at C700 for later syncing to VRAM
+	; ix points to the packed spritemap (for a set of sprites, e.g. alex riding a boat, plus coords etc)
 	ld   a, (ix+0)
 	or   a
 	ret  z
 
 	ld   a, (ix+9)
 	or   (ix+10)
-	jp   nz, _LABEL_283B_132
+	jp   nz, _LABEL_283B_132 ; these are both 0 in start screen so we never take this jump
 	ld   a, (ix+14)
 	cp   $C0
-	ret  nc
+	ret  nc ; return if y coordinate is greater than 0xC0=192
 
-	ld   c, a
-	ld   de, ($C009)
+	ld   c, a ; c = y coord
+	ld   de, ($C009) ; points at C706 at loading screen - our ref for where to load sprite refs?
 	push de
 	ld   l, (ix+7)
 	ld   h, (ix+8)
-	ld   b, (hl)
-	push bc
-	inc  hl
-	ld   a, (hl)
-	ld   (ix+19), a
-	inc  hl
+	ld   b, (hl) ; load squashed sprite data (arranged like VRAM in y, x/tiles but with no whitespace)
+	push bc ; b = number of sprites to sync
+	inc  hl ; hl points at magic byte
+	ld   a, (hl) ; stored in a
+	ld   (ix+19), a ; and then dump into byte 19
+	inc  hl ; hl points at first y coord
 _LABEL_26FF_134:
 	ld   a, c
-	add  a, (hl)
-	cp   $D0
+	add  a, (hl) ; offset all the tiles by the y coord from the spriteset
+	cp   $D0 ; 0xD0 is used as a marker for end of print so this might be why this is here
 	jr   nz, _LABEL_2706_133
 	dec  a
 _LABEL_2706_133:
 	ld   (de), a
-	inc  e
-	inc  hl
-	djnz _LABEL_26FF_134
-	ld   ($C009), de
-	pop  bc
-	pop  de
-	sla  e
-	set  7, e
-	ld   c, (ix+12)
+	inc  e  ; de points at sprite cache
+	inc  hl ; hl points at y coords in squashed sprite ref
+	djnz _LABEL_26FF_134 ; loop b times (b = number of sprites)
+	ld   ($C009), de ; remember where we loaded the last sprite ref (y coord at least)
+	pop  bc ; keep the versions of b (number of sprites) and de (ref to start of table)
+	pop  de ; hl is correct though - it now points at the x coord/tile refs
+	sla  e  
+	set  7, e ; e = e*2 + 0x80 - de now points at the x coord/tile ref row
+	ld   c, (ix+12) ; c now has the x coord
 _LABEL_2718_138:
 	ld   a, c
-	add  a, (hl)
+	add  a, (hl) ; load x coord from spriteset and offset with above x coord
 	bit  7, (hl)
-	jp   z, _LABEL_2720_135
-	ccf
+	jp   z, _LABEL_2720_135 ; looks like the 0xD0 check above, not sure what it means though
+	ccf ; invert carry flag
 _LABEL_2720_135:
-	jp   nc, _LABEL_2731_136
+	jp   nc, _LABEL_2731_136 ; i think this voids the y coord if we have a bad x coord here?
 	ld   a, $E0
 	res  7, e
 	srl  e
@@ -4856,13 +4857,13 @@ _LABEL_2720_135:
 	jp   _LABEL_2732_137
 
 _LABEL_2731_136:
-	ld   (de), a
+	ld   (de), a ; but otherwise load the x coord
 _LABEL_2732_137:
-	inc  hl
+	inc  hl ; increment to the tile ref
 	inc  e
-	ldi
-	inc  bc
-	djnz _LABEL_2718_138
+	ldi ; then copy the tile right across
+	inc  bc ; counter the effect that LDI has on BC 
+	djnz _LABEL_2718_138 ; loop b times
 	ret
 
 _LABEL_273A_128:

@@ -118,6 +118,7 @@ C006 = joypad sync (the demos in start screen actually use this)
 C007 = flickers when character changes direction
 C008 = used by $2E6 to wake up from sleep, also used to decide what to do in interrupt handler (maybe it's set with options then wait for int?)
 C009 = alternates when alex walks, 0B/0C, and goes briefly to 0D when punching
+C009-C00A = word for where to start loading sprite refs
 C01F = used as part of rst $20 to decide part of your long jump, also referenced in interrupt handler? maybe pointer to some state object?
 C020-C023 = another 32 bit number? looks to be the number of the preview that is playing at the start screen
 C07C = changed when i punched a question mark box and got the ring
@@ -137,7 +138,7 @@ C226 = gets set to 3C as part of start screen init (timer between loading stuff?
 C227 = pointer to which blob to load next on start screen (of the different pictures of alex swimming etc)
 C300 = local cache of sprites too (alex/janken etc)
 C700-C7FF = local cache of sprite table ($1F7 syncs this to VRAM)
-C800-C899? = some other stuff that gets populated in $951 - references to sprite tiles maybe?
+C800-C899? = squashed sprite references - laid out like VRAM but with no whitespace
 
 easy so far, just initalising everything, and then display and interrupts enabled for when we hit $53
 
@@ -309,3 +310,66 @@ and puts things out from wherever into C700
 terminated with 0xD0 (_LABEL_26D4_145)
 so there's a bit more work to do, but $26D7 is definitely the bit that translates from C300 to real data in C700 that then gets
 synced to screen by $1F7
+
+maybe walk through first time through
+first 6 sprites are reserved
+y coords are 00 00 00 00 00 00 0C 0C 14 14 14 D0 (the D0 guarantees if we try to render a sprite it ends up off the bottom of the screen)
+x/tile numbers are 00 00 00 00 00 00 00 00 00 00 00 00 CA 19 D2 1A CA 1B D2 1C DA 1D
+this translates to:
+sprite 0x19 at 0xCA, 0x0C (202, 12)
+sprite 0x1A at 0xD2, 0x0C (210, 12)
+sprite 0x1B at 0xCA, 0x14 (202, 20)
+sprite 0x1C at 0xD2, 0x14 (210, 20)
+sprite 0x1D at 0xDA, 0x14 (218, 20)
+this lines up with alex swimming facing left
+the data that unpacks to this is at $C360, looks like:
+18 00 00 00 00 01 00 78 C8 00 00 00 C9 00 0C 00
+00 00 00 1C 00 00 00 00 00 00 00 00 00 00 00 00
+note even empty sprite data has 6th byte set to 0x01
+
+let's try with the second one (alex on boat facing right)
+data at $C320 looks like:
+18 00 00 00 00 01 00 28 C8 00 00 00 70 00 7C 00
+00 00 00 44 00 00 00 00 00 00 00 00 00 00 00 00
+sprite table:
+y coords (C700)
+00 00 00 00 00 00 7C 7C 84 84 84 8C 8C 8C 0C 0C
+14 14 14 D0 00 00 00 00 00 00 00 00 00 00 00 00
+x coords/tiles (C780)
+00 00 00 00 00 00 00 00 00 00 00 00 70 0B 78 0C
+70 0D 78 0E 80 0F 70 10 78 11 80 12 CA 19 D2 1A
+CA 1B D2 1C DA 1D 00 00 00 00 00 00 00 00 00 00
+
+you see the second lot of sprites push the first lot further down (as they are packed at $C320 and the first were at $C360)
+this translates to:
+sprite 0x0B at 0x70, 0x7C (112, 124)
+sprite 0x0C at 0x78, 0x7C (120, 124)
+sprite 0x0D at 0x70, 0x84 (112, 132)
+sprite 0x0E at 0x78, 0x84 (120, 132)
+sprite 0x0F at 0x80, 0x84 (128, 132)
+sprite 0x10 at 0x70, 0x8C (112, 140)
+sprite 0x11 at 0x78, 0x8C (120, 140)
+sprite 0x12 at 0x80, 0x8C (128, 140)
+this lines up with alex in a boat facing right
+
+so we're seeing the following
+byte 0 is 0x18 when a sprite is present, 00 otherwise
+byte 5 is 0x01 always
+if i didn't know any better, i'd say bytes 12 and 14 are x and y coords
+they line up on the second spriteset, but the first one has C9,0C instead of CA,0C (turns out the sprite ref starts at 0x01 instead of 0x00 so this is correct)
+bytes 7-8 - word offset to sprite refs
+byte 19 is copied from byte 1 from the tileset at C800
+huh, there's a word at bytes 7-8, so we use C800 as our base and pull from there
+i didn't write it down, but when sprites get loaded i think they turn up in 0x28-big chunks from C800
+so our sprites are C800, C828, C850, C878
+the format there looks like (alex swimming):
+05 1C 00 00 08 08 08 01 19 09 1A 01 0B 09 1C 11
+1D 8E 05 1C 00 00 08 08 08 01 00 09 01 01 02 09
+03 11 04 8C
+we have 2 lots (alternating based on movement? can only fit 1 for big spritesets like helicopter)
+values are
+byte 0: num sprites
+byte 1: no idea
+bytes 2 - 2+n: y coords
+bytes 2+n+1 - 2+n+1+(n*2): x coords/tile numbers
+so my guess would be $26D7 just reads this and syncs to the right parts of C700 with some tracking of where the last sprites were loaded
