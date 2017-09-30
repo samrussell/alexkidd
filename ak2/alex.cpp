@@ -5,51 +5,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-void printTile(Uint32* pixels, Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers){
-  for(int rowNum=0; rowNum<8; rowNum++){
-    for(int columnNum=0; columnNum<8; columnNum++){
-      Uint32 sourceRow = rowNum;
-      Uint32 sourceColumn = columnNum;
-      // horizontal flip
-      if (modifiers & 0x200) {
-        sourceColumn = 7 - sourceColumn;
-      }
-      // vertical flip
-      if (modifiers & 0x400) {
-        sourceRow = 7 - sourceRow;
-      }
-      pixels[(y + rowNum)*256 + (x + columnNum)] = tile[sourceRow*8 + sourceColumn];
-    }   
-  }
-}
-
-class Display {
-    int width, height;
-    SDL_Renderer* renderer;
-    SDL_Surface *screen;
-    SDL_Texture *texture;
-  public:
-    Uint32* pixels; // TODO make private, access via methods on Display
-    Display(SDL_Renderer* renderer, int width, int height);
-    void render();
-};
-
-Display::Display(SDL_Renderer* renderer, int width, int height){
-  this->renderer = renderer;
-  this->width = width;
-  this->height = height;
-  screen = SDL_CreateRGBSurface(0, width, height, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-  texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-  pixels = (Uint32*) screen->pixels;
-}
-
-void Display::render(){
-  SDL_UpdateTexture(texture, NULL, screen->pixels, screen->pitch);
-  SDL_RenderClear(renderer);
-  SDL_RenderCopy(renderer, texture, NULL, NULL);
-  SDL_RenderPresent(renderer);
-}
-
 class TileBlock {
     Uint16* tileData;
   public:
@@ -78,18 +33,74 @@ TileBlock* loadTiles(const char* filename, int width, int height){
   return new TileBlock(width, height, tileData);
 }
 
+class Display {
+    int width, height;
+    SDL_Renderer* renderer;
+    SDL_Surface *screen;
+    SDL_Texture *texture;
+  public:
+    Uint32* pixels; // TODO make private, access via methods on Display
+    Uint32* palette;
+    Uint32** tiles;
+    Display(int width, int height, SDL_Renderer* renderer, SDL_Surface* screen, SDL_Texture* texture);
+    void printTile(Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers);
+    void printTileBlock(TileBlock* tileBlock, int columnOffset, int rowOffset);
+    void render();
+};
+
+Display::Display(int width, int height, SDL_Renderer* renderer, SDL_Surface* screen, SDL_Texture* texture){
+  this->width = width;
+  this->height = height;
+  this->renderer = renderer;
+  this->screen = screen;
+  this->texture = texture;
+  pixels = (Uint32*) screen->pixels;
+}
+
+void Display::render(){
+  SDL_UpdateTexture(texture, NULL, screen->pixels, screen->pitch);
+  SDL_RenderClear(renderer);
+  SDL_RenderCopy(renderer, texture, NULL, NULL);
+  SDL_RenderPresent(renderer);
+}
+
+void Display::printTile(Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers){
+  for(int rowNum=0; rowNum<8; rowNum++){
+    for(int columnNum=0; columnNum<8; columnNum++){
+      Uint32 sourceRow = rowNum;
+      Uint32 sourceColumn = columnNum;
+      // horizontal flip
+      if (modifiers & 0x200) {
+        sourceColumn = 7 - sourceColumn;
+      }
+      // vertical flip
+      if (modifiers & 0x400) {
+        sourceRow = 7 - sourceRow;
+      }
+      Uint32 colourOffset = tile[sourceRow*8 + sourceColumn];
+      pixels[(y + rowNum)*256 + (x + columnNum)] = palette[colourOffset];
+    }   
+  }
+}
+
 // TODO put the tiles somewhere that the tileblock can access
-// given these point to vram i guess the display owns this too?
-// this method probably lives on Display
-void printTileBlock(TileBlock* tileBlock, Display* display, Uint32** tiles, int columnOffset, int rowOffset){
+void Display::printTileBlock(TileBlock* tileBlock, int columnOffset, int rowOffset){
   for(int row=0; row<tileBlock->height; row++){
     for(int col=0; col<tileBlock->width; col++){
       Uint32 tileIndex = tileBlock->tile(col, row);
       Uint32* tile = tiles[tileIndex & 0x1FF];
       Uint32 modifiers = tileIndex & 0xFE00;
-      printTile(display->pixels, tile, (columnOffset + col)*8, (rowOffset + row)*8, modifiers);
+      printTile(tile, (columnOffset + col)*8, (rowOffset + row)*8, modifiers);
     }
   }
+}
+
+// kind of a factory to create the display
+
+Display* buildDisplay(int width, int height, SDL_Renderer* renderer){
+  SDL_Surface* screen = SDL_CreateRGBSurface(0, width, height, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+  SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+  return new Display(width, height, renderer, screen, texture);
 }
 
 int main()
@@ -108,13 +119,14 @@ int main()
 
   SDL_CreateWindowAndRenderer(256, 192, 0, &window, &renderer);
 
-  Display* display = new Display(renderer, 256, 192);
+  Display* display = buildDisplay(256, 192, renderer);
 
   // alex kidd load screen background colour
   for(int i=0; i<256*192; i++){
     display->pixels[i] = 0xFFFFFFAA;
   }
 
+  // TODO put in method
   // load palette
   FILE* paletteFile = fopen("assets/logopalette.dat", "rb");
   fread(rawPalette, 1, 32, paletteFile);
@@ -127,14 +139,14 @@ int main()
     char blue = (rawPalette[i] >> 4) & 0x3;
     palette[i] = (0xFF << 24) | ((red * 0x55) << 16) | ((green * 0x55) << 8) | (blue * 0x55);
   }
+  display->palette = palette;
 
   // load tiles
   FILE* tileFile = fopen("assets/start_screen_tiles.dat", "rb");
   fread(rawTiles, 1, 0x2000, tileFile);
   fclose(tileFile);
 
-  // convert some and apply palette
-  // we'll go with tile #67 - a few colours, top right part of the A
+  // convert some - palette applied at display time
 
   for(int tileNum=0; tileNum<512; tileNum++){
     Uint32 tileOffset = tileNum * 8;
@@ -156,12 +168,13 @@ int main()
       rawRow[7] = (rowData & 0x01010101);
 
       for(int columnNum=0; columnNum<8; columnNum++){
-        Uint32 offset = ((rawRow[columnNum] & 0x01000000) >> 21) | ((rawRow[columnNum] & 0x00010000) >> 14) | ((rawRow[columnNum] & 0x00000100) >> 7) | (rawRow[columnNum] & 0x00000001);
-        tile[rowNum*8 + columnNum] = palette[offset];
+        Uint32 colourOffset = ((rawRow[columnNum] & 0x01000000) >> 21) | ((rawRow[columnNum] & 0x00010000) >> 14) | ((rawRow[columnNum] & 0x00000100) >> 7) | (rawRow[columnNum] & 0x00000001);
+        tile[rowNum*8 + columnNum] = colourOffset;
       }
     }
     tiles[tileNum] = tile;
   }
+  display->tiles = tiles;
 
   TileBlock* logo1Tiles = loadTiles("assets/logo1.dat", 14, 6);
   TileBlock* logo2Tiles = loadTiles("assets/logo2.dat", 13, 7);
@@ -171,14 +184,14 @@ int main()
   TileBlock* logo6Tiles = loadTiles("assets/logosnippet4.dat", 6, 12);
   TileBlock* logo7Tiles = loadTiles("assets/logosnippet5.dat", 12, 16);
   TileBlock* logo8Tiles = loadTiles("assets/logosnippet6.dat", 17, 3);
-  printTileBlock(logo1Tiles, display, tiles, 7, 2);
-  printTileBlock(logo2Tiles, display, tiles, 13, 7);
-  printTileBlock(logo3Tiles, display, tiles, 20, 0);
-  printTileBlock(logo4Tiles, display, tiles, 12, 14);
-  printTileBlock(logo5Tiles, display, tiles, 0, 0);
-  printTileBlock(logo6Tiles, display, tiles, 26, 7);
-  printTileBlock(logo7Tiles, display, tiles, 0, 8);
-  printTileBlock(logo8Tiles, display, tiles, 13, 20);
+  display->printTileBlock(logo1Tiles, 7, 2);
+  display->printTileBlock(logo2Tiles, 13, 7);
+  display->printTileBlock(logo3Tiles, 20, 0);
+  display->printTileBlock(logo4Tiles, 12, 14);
+  display->printTileBlock(logo5Tiles, 0, 0);
+  display->printTileBlock(logo6Tiles, 26, 7);
+  display->printTileBlock(logo7Tiles, 0, 8);
+  display->printTileBlock(logo8Tiles, 13, 20);
 
   display->render();
   printf("done\n");
