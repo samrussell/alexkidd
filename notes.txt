@@ -382,3 +382,14 @@ get pointer from ($803A) = $8201
 so we can make an extractor from this
 let's extra the spritesets one at a time - takes longer but is better than taking a massive chunk from $10000-$11???
 benefit of this approach is we can probably just scan through and find all sane-looking addresses in a row and extract them all in one go... easy
+swimming sprite is number 10 so let's pull that out
+
+next step is look at $951 as this populates $C800 for the full tile-to-alex maps
+looks like it has them pre-populated at the address loaded into HL
+alex swimming goes in at $C878, looks like it comes from $8E02
+memory bank 2 so this is $8E02 in file
+we can extract this out easily enough
+
+i think i'll code this up by hand, but the useful automation step would be to load all the tiles, then the spritemaps
+then get a bit of code that maps the tiles to actual objects and then generates the code
+a little time consuming at first but otherwise we're just messing around in meka to make sure the math all lines up

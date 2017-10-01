@@ -1013,21 +1013,22 @@ _LABEL_8F6_113:
 	call _LABEL_9D9_114 ; this clears sprite memory ($C300)
 	ld   a, $1D ; init and set bc=3A -> load sprite set 29
 	; this appears to load a bunch of the alex kidd sprites
+	; no janken sprites here, just alex sprites
 	; walking/jumping/helicopter/swimming
-	call _LABEL_41C0_117
+	call _LABEL_41C0_117 ; helicopter - 11 sprites
 	ld   bc, $0036
-	call _LABEL_41C8_118
+	call _LABEL_41C8_118 ; boat - 8 sprites
 	ld   bc, $002C
-	call _LABEL_41C8_118
+	call _LABEL_41C8_118 ; jumping - 6 sprites
 	ld   bc, $0014
-	call _LABEL_41C8_118
+	call _LABEL_41C8_118 ; swimming - 5 sprites
 	ld   hl, $A357
 	ld   de, $6400
 	call _LABEL_293_104 ; unpack tileset from $A357 (0x12357 in file) and load into VRAM at $2400 (janken)
 	ld   a, $82 ; rom bank 2 now
 	ld   ($FFFF), a
 	ld   hl, $8F7C
-	ld   de, $C800
+	ld   de, $C800 ; this is the part that populates $C800 etc with the mappings of tiles to a full sprite
 	xor  a
 	call _LABEL_951_119
 	ld   hl, $9153

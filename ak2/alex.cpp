@@ -23,7 +23,7 @@ Uint16 TileBlock::tile(int column, int row){
   return this->tileData[row*this->width + column];
 }
 
-TileBlock* loadTiles(const char* filename, int width, int height){
+TileBlock* loadTileBlock(const char* filename, int width, int height){
   FILE* tileFile = fopen(filename, "rb");
   int dataCount = width * height;
   Uint16* tileData = new Uint16[dataCount];
@@ -114,7 +114,7 @@ int main()
   Uint32 palette[32];
   char rawPalette[32];
 
-  Uint32 rawTiles[0x800]; // 0x400 * 32 bit rows
+  Uint32 rawTiles[0x1000]; // 0x400 * 32 bit rows
   Uint32* tiles[512];
 
   SDL_CreateWindowAndRenderer(256, 192, 0, &window, &renderer);
@@ -146,8 +146,17 @@ int main()
   fread(rawTiles, 1, 0x2000, tileFile);
   fclose(tileFile);
 
-  // convert some - palette applied at display time
+  // load sprite tiles too
+  // this is quite manual, normally would be loaded in order
+  // but this is just enough to get alex swimming
+  FILE* sprite1File = fopen("assets/sprite_10.dat", "rb");
+  // loaded from tile 0x19 onwards
+  // 8x32bit blocks
+  // this one has 5 tiles
+  fread(&rawTiles[0x800 + 8*0x19], 1, 0xA0, sprite1File);
+  fclose(tileFile);
 
+  // TODO this definitely needs to be in a method
   for(int tileNum=0; tileNum<512; tileNum++){
     Uint32 tileOffset = tileNum * 8;
     Uint32* tile = new Uint32[8*8];
@@ -176,14 +185,14 @@ int main()
   }
   display->tiles = tiles;
 
-  TileBlock* logo1Tiles = loadTiles("assets/logo1.dat", 14, 6);
-  TileBlock* logo2Tiles = loadTiles("assets/logo2.dat", 13, 7);
-  TileBlock* logo3Tiles = loadTiles("assets/logosnippet1.dat", 12, 7);
-  TileBlock* logo4Tiles = loadTiles("assets/logosnippet2.dat", 14, 6);
-  TileBlock* logo5Tiles = loadTiles("assets/logosnippet3.dat", 7, 8);
-  TileBlock* logo6Tiles = loadTiles("assets/logosnippet4.dat", 6, 12);
-  TileBlock* logo7Tiles = loadTiles("assets/logosnippet5.dat", 12, 16);
-  TileBlock* logo8Tiles = loadTiles("assets/logosnippet6.dat", 17, 3);
+  TileBlock* logo1Tiles = loadTileBlock("assets/logo1.dat", 14, 6);
+  TileBlock* logo2Tiles = loadTileBlock("assets/logo2.dat", 13, 7);
+  TileBlock* logo3Tiles = loadTileBlock("assets/logosnippet1.dat", 12, 7);
+  TileBlock* logo4Tiles = loadTileBlock("assets/logosnippet2.dat", 14, 6);
+  TileBlock* logo5Tiles = loadTileBlock("assets/logosnippet3.dat", 7, 8);
+  TileBlock* logo6Tiles = loadTileBlock("assets/logosnippet4.dat", 6, 12);
+  TileBlock* logo7Tiles = loadTileBlock("assets/logosnippet5.dat", 12, 16);
+  TileBlock* logo8Tiles = loadTileBlock("assets/logosnippet6.dat", 17, 3);
   display->printTileBlock(logo1Tiles, 7, 2);
   display->printTileBlock(logo2Tiles, 13, 7);
   display->printTileBlock(logo3Tiles, 20, 0);
@@ -192,6 +201,8 @@ int main()
   display->printTileBlock(logo6Tiles, 26, 7);
   display->printTileBlock(logo7Tiles, 0, 8);
   display->printTileBlock(logo8Tiles, 13, 20);
+  // load tiles for alex swimming
+
 
   display->render();
   printf("done\n");
