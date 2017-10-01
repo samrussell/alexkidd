@@ -373,3 +373,12 @@ byte 1: no idea
 bytes 2 - 2+n: y coords
 bytes 2+n+1 - 2+n+1+(n*2): x coords/tile numbers
 so my guess would be $26D7 just reads this and syncs to the right parts of C700 with some tracking of where the last sprites were loaded
+
+now we have this, let's try extracting the first spriteset of alex swimming
+pulling apart $8F6
+we set a=$1d and call $41C0
+this inits things, sets BC=$3A (sprite set 29) and then we do $41C8 like the rest do
+get pointer from ($803A) = $8201
+so we can make an extractor from this
+let's extra the spritesets one at a time - takes longer but is better than taking a massive chunk from $10000-$11???
+benefit of this approach is we can probably just scan through and find all sane-looking addresses in a row and extract them all in one go... easy

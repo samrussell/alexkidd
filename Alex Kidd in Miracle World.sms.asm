@@ -5135,10 +5135,10 @@ _LABEL_41C8_118:
 	ld   a, $84 ; ROM bank 4, add $8000 to convert to ROM addresses
 	ld   ($FFFF), a
 	ld   hl, $8000
-	add  hl, bc
+	add  hl, bc ; $8000 is base of sprite defs, so $8000 + BC = spritedef pointer
 	ld   e, (hl)
 	inc  hl
-	ld   d, (hl)
+	ld   d, (hl) ; de = pointer from $8000+BC
 	ex   de, hl
 	ld   c, $BE
 	ld   a, (hl)
