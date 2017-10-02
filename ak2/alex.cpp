@@ -43,7 +43,7 @@ class Display {
     Uint32* palette;
     Uint32** tiles;
     Display(int width, int height, SDL_Renderer* renderer, SDL_Surface* screen, SDL_Texture* texture);
-    void printTile(Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers);
+    void printTile(Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers, bool isSprite);
     void printTileBlock(TileBlock* tileBlock, int columnOffset, int rowOffset);
     void render();
 };
@@ -64,7 +64,7 @@ void Display::render(){
   SDL_RenderPresent(renderer);
 }
 
-void Display::printTile(Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers){
+void Display::printTile(Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers, bool isSprite){
   for(int rowNum=0; rowNum<8; rowNum++){
     for(int columnNum=0; columnNum<8; columnNum++){
       Uint32 sourceRow = rowNum;
@@ -78,7 +78,14 @@ void Display::printTile(Uint32* tile, Uint32 x, Uint32 y, Uint32 modifiers){
         sourceRow = 7 - sourceRow;
       }
       Uint32 colourOffset = tile[sourceRow*8 + sourceColumn];
-      pixels[(y + rowNum)*256 + (x + columnNum)] = palette[colourOffset];
+      if(isSprite){
+        if(colourOffset != 0){
+          pixels[(y + rowNum)*256 + (x + columnNum)] = palette[0x10 + colourOffset]; 
+        }
+      }
+      else{
+        pixels[(y + rowNum)*256 + (x + columnNum)] = palette[colourOffset]; 
+      }
     }   
   }
 }
@@ -90,7 +97,7 @@ void Display::printTileBlock(TileBlock* tileBlock, int columnOffset, int rowOffs
       Uint32 tileIndex = tileBlock->tile(col, row);
       Uint32* tile = tiles[tileIndex & 0x1FF];
       Uint32 modifiers = tileIndex & 0xFE00;
-      printTile(tile, (columnOffset + col)*8, (rowOffset + row)*8, modifiers);
+      printTile(tile, (columnOffset + col)*8, (rowOffset + row)*8, modifiers, false);
     }
   }
 }
@@ -153,8 +160,20 @@ int main()
   // loaded from tile 0x19 onwards
   // 8x32bit blocks
   // this one has 5 tiles
-  fread(&rawTiles[0x800 + 8*0x19], 1, 0xA0, sprite1File);
-  fclose(tileFile);
+  fread(&rawTiles[0x800 + 8*0x19], 1, 0x20*5, sprite1File);
+  fclose(sprite1File);
+  // alex in boat
+  FILE* sprite2File = fopen("assets/sprite_27.dat", "rb");
+  fread(&rawTiles[0x800 + 8*0x0B], 1, 0x20*8, sprite2File);
+  fclose(sprite2File);
+  // alex in chopper
+  FILE* sprite3File = fopen("assets/sprite_29.dat", "rb");
+  fread(&rawTiles[0x800 + 8*0x00], 1, 0x20*11, sprite3File);
+  fclose(sprite3File);
+  // alex jumping
+  FILE* sprite4File = fopen("assets/sprite_22.dat", "rb");
+  fread(&rawTiles[0x800 + 8*0x13], 1, 0x20*6, sprite4File);
+  fclose(sprite4File);
 
   // TODO this definitely needs to be in a method
   for(int tileNum=0; tileNum<512; tileNum++){
@@ -202,6 +221,40 @@ int main()
   display->printTileBlock(logo7Tiles, 0, 8);
   display->printTileBlock(logo8Tiles, 13, 20);
   // load tiles for alex swimming
+  display->printTile(tiles[0x119], 202, 12, 0, true);
+  display->printTile(tiles[0x11A], 210, 12, 0, true);
+  display->printTile(tiles[0x11B], 202, 20, 0, true);
+  display->printTile(tiles[0x11C], 210, 20, 0, true);
+  display->printTile(tiles[0x11D], 218, 20, 0, true);
+  // more duplication until i get annoyed
+  // alex in boat
+  display->printTile(tiles[0x10B], 120, 124, 0, true);
+  display->printTile(tiles[0x10C], 128, 124, 0, true);
+  display->printTile(tiles[0x10D], 120, 132, 0, true);
+  display->printTile(tiles[0x10E], 128, 132, 0, true);
+  display->printTile(tiles[0x10F], 136, 132, 0, true);
+  display->printTile(tiles[0x110], 120, 140, 0, true);
+  display->printTile(tiles[0x111], 128, 140, 0, true);
+  display->printTile(tiles[0x112], 136, 140, 0, true);
+  // alex in chopper
+  display->printTile(tiles[0x100], 220, 70, 0, true);
+  display->printTile(tiles[0x101], 228, 70, 0, true);
+  display->printTile(tiles[0x102], 236, 70, 0, true);
+  display->printTile(tiles[0x103], 220, 78, 0, true);
+  display->printTile(tiles[0x104], 228, 78, 0, true);
+  display->printTile(tiles[0x105], 236, 78, 0, true);
+  display->printTile(tiles[0x106], 220, 86, 0, true);
+  display->printTile(tiles[0x107], 228, 86, 0, true);
+  display->printTile(tiles[0x108], 236, 86, 0, true);
+  display->printTile(tiles[0x109], 222, 94, 0, true);
+  display->printTile(tiles[0x10A], 230, 94, 0, true);
+  // alex jumping
+  display->printTile(tiles[0x113], 24, 79, 0, true);
+  display->printTile(tiles[0x114], 32, 79, 0, true);
+  display->printTile(tiles[0x115], 24, 87, 0, true);
+  display->printTile(tiles[0x116], 32, 87, 0, true);
+  display->printTile(tiles[0x117], 25, 95, 0, true);
+  display->printTile(tiles[0x118], 33, 95, 0, true);
 
 
   display->render();

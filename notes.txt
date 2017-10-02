@@ -363,7 +363,7 @@ huh, there's a word at bytes 7-8, so we use C800 as our base and pull from there
 i didn't write it down, but when sprites get loaded i think they turn up in 0x28-big chunks from C800
 so our sprites are C800, C828, C850, C878
 the format there looks like (alex swimming):
-05 1C 00 00 08 08 08 01 19 09 1A 01 0B 09 1C 11
+05 1C 00 00 08 08 08 01 19 09 1A 01 1B 09 1C 11
 1D 8E 05 1C 00 00 08 08 08 01 00 09 01 01 02 09
 03 11 04 8C
 we have 2 lots (alternating based on movement? can only fit 1 for big spritesets like helicopter)
@@ -388,8 +388,25 @@ next step is look at $951 as this populates $C800 for the full tile-to-alex maps
 looks like it has them pre-populated at the address loaded into HL
 alex swimming goes in at $C878, looks like it comes from $8E02
 memory bank 2 so this is $8E02 in file
+these are scoped to 0 so it looks like when they get loaded they also take into account the base of where the tileset starts - that's cool
 we can extract this out easily enough
 
 i think i'll code this up by hand, but the useful automation step would be to load all the tiles, then the spritemaps
 then get a bit of code that maps the tiles to actual objects and then generates the code
 a little time consuming at first but otherwise we're just messing around in meka to make sure the math all lines up
+so the alex swimming set is
+(1, 0): 0x19 (0x0 in file as per note above)
+(9, 0): 0x1A (0x1 in file ...)
+(1, 8): 0x1B (etc)
+(9, 8): 0x1C
+(17, 8): 0x1D
+x, y base = 0xc9, 0x0c = (201, 12)
+translating all of this
+(202, 12): 0x19 (0x0 in file as per note above)
+(210, 12): 0x1A (0x1 in file ...)
+(202, 20): 0x1B (etc)
+(210, 20): 0x1C
+(218, 20): 0x1D
+we should really be stripping these out of the random points in the file and converting them to json or something
+or even better, just extracting the sprites as bitmaps or something
+but see how we go as the game progresses

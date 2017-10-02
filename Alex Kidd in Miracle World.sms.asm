@@ -1063,8 +1063,11 @@ _LABEL_95F_120:
 	ret
 
 ; 967-9D8 disassembled
-; my guess for these is putting sprites over top
-; deal with this later
+; these load the sprite refs
+; 0x18 at $00 tells it to render
+; the pointers to $c800, $c828 etc are the squashed vram sprite data
+; the +$0c and +$0e are x and y coords
+; this is regularly synced from c300 to dump to c700 and then into vram
 
 ld     ix,$c300
 ld     (ix+$00),$18
